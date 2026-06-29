@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Freeze Settings – Ticket Tracker{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-snow me-2 text-primary"></i>Freeze Date Settings
+            </h5>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                {% if settings and settings.freeze_date %}
+                <div class="alert alert-info mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Current freeze date: <strong>{{ settings.freeze_date.strftime('%d-%b-%Y') }}</strong>
+                    <br>
+                    <span class="text-muted small">
+                        Last updated by {{ settings.updated_by or '–' }}
+                        {% if settings.updated_at %}
+                        on {{ settings.updated_at.strftime('%d-%b-%Y %H:%M') }}
+                        {% endif %}
+                    </span>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-3">
+                    <i class="bi bi-info-circle me-2"></i>No freeze date is currently set.
+                </div>
+                {% endif %}
+
+                <form method="POST" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Set Freeze Date</label>
+                        <input type="date" name="freeze_date" class="form-control"
+                               value="{{ settings.freeze_date.strftime('%Y-%m-%d') if settings and settings.freeze_date else '' }}" onclick="this.showPicker()">
+                        <div class="form-text">
+                            On or after this date, adding tickets will also require approval.
+                            Leave empty to remove freeze.
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>Update Freeze Date
+                        </button>
+                        <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm bg-light">
+            <div class="card-body">
+                <h6 class="fw-bold mb-2"><i class="bi bi-info-circle me-2"></i>How Freeze Works</h6>
+                <ul class="small mb-0 text-muted">
+                    <li><strong>Before freeze date:</strong> Add tickets directly. Edit/Delete require approval.</li>
+                    <li><strong>On or after freeze date:</strong> All operations (Add/Edit/Delete) require approval.</li>
+                    <li><strong>No freeze date set:</strong> Add is direct. Edit/Delete require approval.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users – Ticket Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">
+        <i class="bi bi-people me-2 text-primary"></i>Manage Users
+    </h5>
+    <span class="badge bg-secondary">{{ users|length }} Users</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">#</th>
+                        <th>Username</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Created At</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td class="ps-3">{{ user.id }}</td>
+                        <td class="fw-semibold">
+                            {{ user.username }}
+                            {% if user.id == current_user.id %}
+                            <span class="badge bg-primary ms-1 small">You</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ user.email }}</td>
+                        <td>
+                            <span class="badge {% if user.role == 'Admin' %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %}">
+                                {{ user.role }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if user.active_flag %}bg-success{% else %}bg-danger{% endif %}">
+                                {% if user.active_flag %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </td>
+                        <td class="text-muted small">
+                            {{ user.created_at.strftime('%d-%b-%Y') if user.created_at else '–' }}
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex gap-1 justify-content-center flex-wrap">
+                                {% if user.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('admin.toggle_active', user_id=user.id) }}">
+                                    <button type="submit" class="btn btn-xs {% if user.active_flag %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                                            title="{% if user.active_flag %}Deactivate{% else %}Activate{% endif %}"
+                                            onclick="return confirm('{% if user.active_flag %}Deactivate{% else %}Activate{% endif %} user {{ user.username }}?')">
+                                        <i class="bi bi-{% if user.active_flag %}person-x{% else %}person-check{% endif %}"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('admin.promote_user', user_id=user.id) }}">
+                                    <button type="submit" class="btn btn-xs btn-outline-warning"
+                                            title="Toggle Role"
+                                            onclick="return confirm('Change role for {{ user.username }}?')">
+                                        <i class="bi bi-arrow-up-down"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                <form method="POST" action="{{ url_for('admin.reset_password', user_id=user.id) }}">
+                                    <button type="submit" class="btn btn-xs btn-outline-secondary" title="Send Password Reset"
+                                            onclick="return confirm('Send password reset to {{ user.email }}?')">
+                                        <i class="bi bi-envelope"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">No users found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
