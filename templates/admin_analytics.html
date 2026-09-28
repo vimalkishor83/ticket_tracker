@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}Analytics – Ticket Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        <i class="bi bi-bar-chart-line me-2 text-primary"></i>Analytics
+    </h5>
+</div>
+
+<div class="row g-4">
+
+    <!-- Tickets Created Per Month -->
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 fw-semibold small py-2 px-3">
+                <i class="bi bi-calendar3 me-1 text-primary"></i>Tickets Created Per Month
+            </div>
+            <div class="card-body p-3">
+                <div style="position:relative; height:260px;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Planned vs Utilized Efforts -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 fw-semibold small py-2 px-3">
+                <i class="bi bi-clock-history me-1 text-primary"></i>Planned vs Utilized Efforts by Month
+            </div>
+            <div class="card-body p-3">
+                <div style="position:relative; height:260px;">
+                    <canvas id="effortChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tickets by Type -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 fw-semibold small py-2 px-3">
+                <i class="bi bi-tag me-1 text-primary"></i>Tickets by Type
+            </div>
+            <div class="card-body p-3">
+                <div style="position:relative; height:260px;">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tickets by Status -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 fw-semibold small py-2 px-3">
+                <i class="bi bi-pie-chart me-1 text-primary"></i>Tickets by Status
+            </div>
+            <div class="card-body p-3">
+                <div style="position:relative; height:260px;">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 fw-semibold small py-2 px-3">
+                <i class="bi bi-list-check me-1 text-primary"></i>Summary
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% set total_planned = effort_planned | sum %}
+                    {% set total_utilized = effort_utilized | sum %}
+                    <div class="col-sm-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="fs-4 fw-bold text-primary">{{ monthly_counts | sum }}</div>
+                            <div class="text-muted small">Total Tickets</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="fs-4 fw-bold text-info">{{ total_planned | round(1) }}</div>
+                            <div class="text-muted small">Total Planned Hrs</div>
+                        </div>
+                    </div>
+                    <div class="col-sm-4">
+                        <div class="text-center p-3 bg-light rounded">
+                            <div class="fs-4 fw-bold text-success">{{ total_utilized | round(1) }}</div>
+                            <div class="text-muted small">Total Utilized Hrs</div>
+                        </div>
+                    </div>
+                    {% if total_planned > 0 %}
+                    <div class="col-12">
+                        {% set utilization_pct = (total_utilized / total_planned * 100) | round(1) %}
+                        <div class="text-muted small fw-semibold mb-1">Overall Effort Utilization: {{ utilization_pct }}%</div>
+                        <div class="progress" style="height:10px;">
+                            <div class="progress-bar {% if utilization_pct > 100 %}bg-danger{% elif utilization_pct > 80 %}bg-warning{% else %}bg-success{% endif %}"
+                                 style="width:{{ [utilization_pct, 100] | min }}%"></div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STATUS_COLORS = {
+    'Open': '#198754',
+    'In Progress': '#0dcaf0',
+    'UAT': '#ffc107',
+    'Closed': '#6c757d',
+    'On Hold': '#6f42c1'
+};
+
+new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ monthly_labels | tojson }},
+        datasets: [{
+            label: 'Tickets Created',
+            data: {{ monthly_counts | tojson }},
+            backgroundColor: 'rgba(13, 110, 253, 0.6)',
+            borderColor: 'rgba(13, 110, 253, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+});
+
+new Chart(document.getElementById('effortChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ effort_months | tojson }},
+        datasets: [
+            {
+                label: 'Planned (hrs)',
+                data: {{ effort_planned | tojson }},
+                backgroundColor: 'rgba(13, 202, 240, 0.7)',
+                borderColor: 'rgba(13, 202, 240, 1)',
+                borderWidth: 1
+            },
+            {
+                label: 'Utilized (hrs)',
+                data: {{ effort_utilized | tojson }},
+                backgroundColor: 'rgba(25, 135, 84, 0.7)',
+                borderColor: 'rgba(25, 135, 84, 1)',
+                borderWidth: 1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: { y: { beginAtZero: true } }
+    }
+});
+
+new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+        labels: {{ type_labels | tojson }},
+        datasets: [{
+            data: {{ type_counts | tojson }},
+            backgroundColor: ['#0d6efd','#198754','#ffc107','#dc3545','#0dcaf0','#6f42c1','#fd7e14'],
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+    }
+});
+
+const statusLabels = {{ status_labels | tojson }};
+new Chart(document.getElementById('statusChart'), {
+    type: 'doughnut',
+    data: {
+        labels: statusLabels,
+        datasets: [{
+            data: {{ status_counts | tojson }},
+            backgroundColor: statusLabels.map(l => STATUS_COLORS[l] || '#adb5bd'),
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+    }
+});
+</script>
+{% endblock %}

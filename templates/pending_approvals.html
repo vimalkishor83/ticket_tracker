@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Pending Approvals – Ticket Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">
+        <i class="bi bi-hourglass-split me-2 text-primary"></i>Pending Approvals
+    </h5>
+    <span class="badge bg-danger fs-6">{{ approvals|length }} Pending</span>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <form method="POST" action="{{ url_for('approvals.bulk_approval_action') }}" id="bulkForm">
+            {% if approvals %}
+            <div class="d-flex gap-2 align-items-center px-3 py-2 border-bottom bg-light">
+                <div class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input" id="selectAll">
+                    <label class="form-check-label small fw-semibold" for="selectAll">Select All</label>
+                </div>
+                <button type="submit" name="action" value="approve"
+                        class="btn btn-success btn-sm ms-3"
+                        onclick="return confirmBulk('approve')">
+                    <i class="bi bi-check-all me-1"></i>Bulk Approve
+                </button>
+                <button type="submit" name="action" value="reject"
+                        class="btn btn-danger btn-sm"
+                        onclick="return confirmBulk('reject')">
+                    <i class="bi bi-x-circle me-1"></i>Bulk Reject
+                </button>
+            </div>
+            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            {% if approvals %}<th class="ps-3" style="width:40px;"></th>{% endif %}
+                            <th class="{% if not approvals %}ps-3{% endif %}">#</th>
+                            <th>Request Type</th>
+                            <th>Ticket No</th>
+                            <th>Requested By</th>
+                            <th>Requested At</th>
+                            <th>Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in approvals %}
+                        <tr>
+                            <td class="ps-3">
+                                <input type="checkbox" name="approval_ids" value="{{ a.id }}"
+                                       class="form-check-input approval-checkbox">
+                            </td>
+                            <td>{{ a.id }}</td>
+                            <td>
+                                {% if a.request_type == 'ADD' %}
+                                    <span class="badge bg-success">ADD</span>
+                                {% elif a.request_type == 'EDIT' %}
+                                    <span class="badge bg-primary">EDIT</span>
+                                {% elif a.request_type == 'DELETE' %}
+                                    <span class="badge bg-danger">DELETE</span>
+                                {% else %}
+                                    {{ a.request_type }}
+                                {% endif %}
+                            </td>
+                            <td class="fw-semibold">
+                                {% if a.ticket %}{{ a.ticket.ticket_no }}
+                                {% elif a.request_type == 'ADD' %}
+                                    {% set d = a.get_request_data() %}
+                                    {{ d.get('ticket_no', '–') }}
+                                {% else %}–{% endif %}
+                            </td>
+                            <td>{{ a.requested_by }}</td>
+                            <td class="text-muted small">
+                                {{ a.requested_at.strftime('%d-%b-%Y %H:%M') if a.requested_at else '–' }}
+                            </td>
+                            <td><span class="badge bg-warning text-dark">{{ a.status }}</span></td>
+                            <td class="text-center">
+                                <a href="{{ url_for('approvals.approval_details', approval_id=a.id) }}"
+                                   class="btn btn-primary btn-xs">
+                                    <i class="bi bi-eye me-1"></i>Review
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-check-circle-fill text-success fs-3 d-block mb-2"></i>
+                                No pending approvals.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('selectAll').addEventListener('change', function() {
+    document.querySelectorAll('.approval-checkbox')
+        .forEach(cb => cb.checked = this.checked);
+});
+
+function confirmBulk(action) {
+    const checked = document.querySelectorAll('.approval-checkbox:checked').length;
+    if (checked === 0) {
+        alert('Please select at least one approval request.');
+        return false;
+    }
+    return confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${checked} selected request(s)?`);
+}
+</script>
+{% endblock %}

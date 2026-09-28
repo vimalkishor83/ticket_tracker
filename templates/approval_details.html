@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}Approval Details – Ticket Tracker{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="fw-bold mb-0">
+        <i class="bi bi-file-earmark-check me-2 text-primary"></i>Approval Request #{{ approval.id }}
+    </h5>
+    <a href="{{ url_for('approvals.pending_approvals') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back to Approvals
+    </a>
+</div>
+
+<!-- Request Summary -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-light">
+        <strong>Request Summary</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-sm-3">
+                <div class="small text-muted">Request Type</div>
+                <span class="badge reqtype-badge reqtype-{{ approval.request_type | lower }} fs-6 mt-1">
+                    {{ approval.request_type }}
+                </span>
+            </div>
+            <div class="col-sm-3">
+                <div class="small text-muted">Requested By</div>
+                <div class="fw-semibold">{{ approval.requested_by }}</div>
+            </div>
+            <div class="col-sm-3">
+                <div class="small text-muted">Requested At</div>
+                <div>{{ approval.requested_at.strftime('%d-%b-%Y %H:%M') if approval.requested_at else '–' }}</div>
+            </div>
+            <div class="col-sm-3">
+                <div class="small text-muted">Current Status</div>
+                <span class="badge bg-warning text-dark">{{ approval.status }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Request Data -->
+{% if approval.request_type == 'ADD' %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <strong><i class="bi bi-plus-circle me-2"></i>New Ticket Details</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for key, label in field_labels.items() %}
+            {% if data.get(key) %}
+            <div class="col-sm-4 col-md-3">
+                <div class="small text-muted">{{ label }}</div>
+                <div class="fw-semibold">{{ data.get(key, '–') }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+{% elif approval.request_type == 'EDIT' and diff %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-warning">
+        <strong><i class="bi bi-pencil me-2"></i>Changes Requested</strong>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-bordered mb-0 align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3" style="width:30%">Field</th>
+                    <th style="width:35%">Old Value</th>
+                    <th style="width:35%">New Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in diff %}
+                <tr>
+                    <td class="ps-3 fw-semibold">{{ row.label }}</td>
+                    <td class="text-danger">{{ row.old or '–' }}</td>
+                    <td class="text-success">{{ row.new or '–' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% elif approval.request_type == 'DELETE' %}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-danger text-white">
+        <strong><i class="bi bi-trash me-2"></i>Ticket to be Deleted</strong>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            {% for key in ['ticket_no', 'ticket_type', 'service', 'description', 'status', 'planned_month', 'created_by', 'created_at'] %}
+            {% if data.get(key) %}
+            <div class="col-sm-4 col-md-3">
+                <div class="small text-muted">{{ field_labels.get(key, key) }}</div>
+                <div class="fw-semibold">{{ data.get(key, '–') }}</div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Action Form -->
+{% if approval.status == 'PENDING' %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-light">
+        <strong>Approval Decision</strong>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('approvals.approval_action', approval_id=approval.id) }}">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Comments (optional)</label>
+                <textarea name="comments" class="form-control" rows="2" placeholder="Enter any comments..."></textarea>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="submit" name="action" value="approve"
+                        class="btn btn-success px-4"
+                        onclick="return confirm('Approve this request?')">
+                    <i class="bi bi-check-circle me-1"></i>Approve
+                </button>
+                <button type="submit" name="action" value="reject"
+                        class="btn btn-danger px-4"
+                        onclick="return confirm('Reject this request?')">
+                    <i class="bi bi-x-circle me-1"></i>Reject
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    <strong>This request has been {{ approval.status | lower }}.</strong>
+    {% if approval.approved_by %}
+    By <strong>{{ approval.approved_by }}</strong>
+    on {{ approval.approved_at.strftime('%d-%b-%Y %H:%M') if approval.approved_at else '' }}.
+    {% endif %}
+    {% if approval.comments %}<br>Comments: {{ approval.comments }}{% endif %}
+</div>
+{% endif %}
+
+{% endblock %}
