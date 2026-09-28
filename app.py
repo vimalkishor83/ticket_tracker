@@ -2,7 +2,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from flask import Flask, redirect, url_for
+from flask import Flask, redirect, url_for, send_from_directory
 from config import Config
 from db import db, login_manager, mail
 
@@ -115,6 +115,16 @@ def create_app():
     app.register_blueprint(approvals_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(comments_bp)
+
+    # Shared, pre-built library files (Bootstrap, Chart.js), bind-mounted
+    # read-only at /common-static from the host's
+    # /home/claudedev/office/common-static -- one copy shared across office
+    # apps instead of each app vendoring its own from a CDN.
+    common_static_dir = os.environ.get("COMMON_STATIC_DIR", "/common-static")
+
+    @app.route("/common-static/<path:filename>")
+    def common_static(filename):
+        return send_from_directory(common_static_dir, filename)
 
     # Create tables
     with app.app_context():
