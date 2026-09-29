@@ -119,18 +119,6 @@ body {
 .reqtype-edit { background: #fef3c7; color: #92400e; }
 .reqtype-delete { background: #fee2e2; color: #991b1b; }
 
-/* Action badges */
-.action-badge {
-    font-size: 0.72rem;
-    padding: 3px 8px;
-    border-radius: 20px;
-}
-
-.action-created { background: #d1fae5; color: #065f46; }
-.action-updated { background: #dbeafe; color: #1e40af; }
-.action-deleted { background: #fee2e2; color: #991b1b; }
-.action-restored { background: #ede9fe; color: #5b21b6; }
-
 /* Form controls */
 .form-label {
     font-size: 0.82rem;
@@ -159,15 +147,6 @@ h5.fw-bold {
     color: #1a1a2e;
 }
 
-/* Freeze banner */
-.freeze-banner {
-    background: linear-gradient(135deg, #1565c0, #0d47a1);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 0.82rem;
-}
-
 /* Responsive */
 @media (max-width: 576px) {
     .stat-number { font-size: 1.4rem; }
@@ -194,32 +173,6 @@ h5.fw-bold {
     z-index: 10;
     background: #f8f9fa;
     white-space: nowrap;
-}
-
-.ticket-table {
-    width: max-content;
-    min-width: 100%;
-    table-layout: auto;
-    white-space: nowrap;
-}
-
-.ticket-table thead th {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: #f8f9fa;
-}
-
-.ticket-table th:first-child,
-.ticket-table td:first-child {
-    position: sticky;
-    left: 0;
-    background: white;
-    z-index: 2;
-}
-
-.ticket-table thead th:first-child {
-    z-index: 101;
 }
 
 .table th:nth-child(1),

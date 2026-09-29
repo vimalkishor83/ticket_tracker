@@ -7,6 +7,7 @@ from models.approval import ApprovalRequest
 from models.settings import SystemSettings
 from models.user import User
 from services.history_service import log_ticket_created
+from services.ticket_constants import STATUSES, TICKET_TYPES
 import pandas as pd
 import io
 from datetime import datetime, date
@@ -14,9 +15,6 @@ from dateutil.relativedelta import relativedelta
 
 tickets_bp = Blueprint('tickets', __name__)
 log = logging.getLogger(__name__)
-
-STATUSES = ['Open', 'In Progress', 'UAT', 'Closed', 'On Hold']
-TICKET_TYPES = ['Enhancement', 'Bug Fix', 'New Feature', 'Maintenance', 'Support', 'Other']
 
 def get_months():
     months = []

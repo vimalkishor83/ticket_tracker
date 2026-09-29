@@ -1,33 +1,10 @@
 import logging
 from db import db
 from models.history import TicketHistory
+from services.field_labels import FIELD_LABELS
 from datetime import datetime
 
 log = logging.getLogger(__name__)
-
-
-FIELD_LABELS = {
-    'ticket_no': 'Ticket No',
-    'ticket_type': 'Ticket Type',
-    'service': 'Service',
-    'description': 'Description',
-    'status': 'Status',
-    'planned_month': 'Planned Month',
-    'actual_implementation_month': 'Actual Implementation Month',
-    'planned_efforts': 'Planned Efforts',
-    'utilized_efforts': 'Utilized Efforts',
-    'approved_by': 'Approved By',
-    'estimated_uat': 'Estimated UAT',
-    'estimated_prod': 'Estimated Prod',
-    'actual_uat': 'Actual UAT',
-    'actual_prod': 'Actual Prod',
-    'revised_uat_date': 'Revised UAT Date',
-    'revised_prod_date': 'Revised Prod Date',
-    'exception_from': 'Exception From',
-    'business_benefits': 'Business Benefits',
-    'remarks': 'Remarks',
-    'deleted_flag': 'Deleted',
-}
 
 
 def log_ticket_created(ticket, changed_by):

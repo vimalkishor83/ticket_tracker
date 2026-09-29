@@ -5,14 +5,12 @@ from models.ticket import Ticket
 from models.approval import ApprovalRequest
 from models.user import User
 from sqlalchemy import func
+from services.ticket_constants import STATUSES, TICKET_TYPES
 import pandas as pd
 import io
 from datetime import datetime
 
 dashboard_bp = Blueprint('dashboard', __name__)
-
-STATUSES = ['Open', 'In Progress', 'UAT', 'Closed', 'On Hold']
-TICKET_TYPES = ['Enhancement', 'Bug Fix', 'New Feature', 'Maintenance', 'Support', 'Other']
 
 
 def fmt_date_display(d):

@@ -6,21 +6,12 @@ from models.user import User
 from models.ticket import Ticket
 from models.settings import SystemSettings
 from services.history_service import log_ticket_restored
-from functools import wraps
+from routes.decorators import admin_required
+from sqlalchemy import func
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
 log = logging.getLogger(__name__)
-
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin():
-            flash('Admin access required.', 'danger')
-            return redirect(url_for('dashboard.index'))
-        return f(*args, **kwargs)
-    return decorated
 
 
 @admin_bp.route('/admin/users')
@@ -131,8 +122,6 @@ def restore_ticket(ticket_id):
 @login_required
 @admin_required
 def analytics():
-    from sqlalchemy import func
-
     # func.strftime is SQLite-only -- use func.format(..., 'yyyy-MM') on SQL Server
     monthly = db.session.query(
         func.strftime('%Y-%m', Ticket.created_at).label('month'),

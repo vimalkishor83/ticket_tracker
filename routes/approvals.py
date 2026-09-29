@@ -8,44 +8,12 @@ from models.user import User
 from services.history_service import log_ticket_created, log_ticket_changes, log_ticket_deleted
 from services.email_service import send_approval_notification
 from routes.tickets import apply_dict_to_ticket
+from routes.decorators import admin_required
+from services.field_labels import FIELD_LABELS
 from datetime import datetime
-from functools import wraps
 
 approvals_bp = Blueprint('approvals', __name__)
 log = logging.getLogger(__name__)
-
-FIELD_LABELS = {
-    'ticket_no': 'Ticket No',
-    'ticket_type': 'Ticket Type',
-    'service': 'Service',
-    'description': 'Description',
-    'status': 'Status',
-    'planned_month': 'Planned Month',
-    'actual_implementation_month': 'Actual Impl. Month',
-    'planned_efforts': 'Planned Efforts',
-    'utilized_efforts': 'Utilized Efforts',
-    'approved_by': 'Approved By',
-    'estimated_uat': 'Estimated UAT',
-    'estimated_prod': 'Estimated Prod',
-    'actual_uat': 'Actual UAT',
-    'actual_prod': 'Actual Prod',
-    'revised_uat_date': 'Revised UAT Date',
-    'revised_prod_date': 'Revised Prod Date',
-    'exception_from': 'Exception From',
-    'business_benefits': 'Business Benefits',
-    'remarks': 'Remarks',
-    'assigned_to': 'Assigned To',
-}
-
-
-def admin_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not current_user.is_authenticated or not current_user.is_admin():
-            flash('Admin access required.', 'danger')
-            return redirect(url_for('dashboard.index'))
-        return f(*args, **kwargs)
-    return decorated
 
 
 def _process_single_approval(approval, action, admin_username, comments):
