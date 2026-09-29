@@ -7,7 +7,7 @@ from models.approval import ApprovalRequest
 from models.user import User
 from services.history_service import log_ticket_created, log_ticket_changes, log_ticket_deleted
 from services.email_service import send_approval_notification
-from routes.tickets import apply_dict_to_ticket, parse_date
+from routes.tickets import apply_dict_to_ticket
 from datetime import datetime
 from functools import wraps
 

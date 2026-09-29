@@ -1,12 +1,12 @@
 import logging
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from db import db
 from models.ticket import Ticket
 from models.approval import ApprovalRequest
 from models.settings import SystemSettings
 from models.user import User
-from services.history_service import log_ticket_created, log_ticket_changes, log_ticket_deleted
+from services.history_service import log_ticket_created
 import pandas as pd
 import io
 from datetime import datetime, date

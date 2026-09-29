@@ -1,5 +1,5 @@
-from flask import Blueprint, render_template, request, send_file, flash, redirect, url_for
-from flask_login import login_required, current_user
+from flask import Blueprint, render_template, request, send_file
+from flask_login import login_required
 from db import db
 from models.ticket import Ticket
 from models.approval import ApprovalRequest
