@@ -34,7 +34,22 @@ setup_logging()
 
 
 def _run_migrations(app):
-    """Add new columns to existing tables idempotently."""
+    """Add new columns to existing tables idempotently.
+
+    SQL SERVER MIGRATION NOTE: this whole approach (raw ALTER TABLE run on
+    every startup, relying on the DB driver to error out when a column/index
+    already exists) is SQLite-idiomatic. On SQL Server:
+    - "CREATE INDEX IF NOT EXISTS" is not valid syntax -- use
+      "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '...') CREATE INDEX ..."
+      or a T-SQL guard block.
+    - "ALTER TABLE ... ADD COLUMN" is SQLite syntax; SQL Server uses
+      "ALTER TABLE tickets ADD assigned_to VARCHAR(64)" (no "COLUMN" keyword),
+      and re-running it will raise a real error (column already exists) rather
+      than something you can blanket try/except -- check
+      INFORMATION_SCHEMA.COLUMNS first instead of relying on exception swallowing.
+    - Prefer a real migration tool (e.g. Flask-Migrate/Alembic) over this
+      idempotent-by-retry pattern once on a database that isn't file-based.
+    """
     migrations = [
         "ALTER TABLE tickets ADD COLUMN assigned_to VARCHAR(64)",
         "CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets (status)",
@@ -52,36 +67,40 @@ def _run_migrations(app):
                 db.session.rollback()
 
 
-def _seed_dummy_data():
-    from models.ticket import Ticket
-    from datetime import date
+def _create_first_admin():
+    """Create the first Admin user from environment variables, if none exists
+    yet and the required variables are set. Never hardcodes a username or
+    password -- if ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD aren't all set,
+    this silently does nothing (fails closed: no default account is ever
+    created), and an operator sets up the first admin by setting these
+    variables once and restarting the app."""
+    from models.user import User
 
-    tickets = [
-        Ticket(ticket_no='TKT-001', ticket_type='Enhancement', service='Payment Gateway', description='Integrate new payment provider for faster checkout', status='Closed', planned_month='Jan-2026', actual_implementation_month='Jan-2026', planned_efforts=12.0, utilized_efforts=10.5, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,1,10), estimated_prod=date(2026,1,20), actual_uat=date(2026,1,11), actual_prod=date(2026,1,22), business_benefits='Reduces transaction fees by 15%', created_by='admin'),
-        Ticket(ticket_no='TKT-002', ticket_type='Bug Fix', service='User Authentication', description='Fix session timeout not working correctly on mobile browsers', status='Closed', planned_month='Jan-2026', actual_implementation_month='Jan-2026', planned_efforts=4.0, utilized_efforts=5.0, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,1,5), estimated_prod=date(2026,1,8), actual_uat=date(2026,1,6), actual_prod=date(2026,1,9), business_benefits='Improves security compliance', created_by='admin'),
-        Ticket(ticket_no='TKT-003', ticket_type='New Feature', service='Reporting', description='Add PDF export functionality to monthly reports dashboard', status='In Progress', planned_month='Feb-2026', planned_efforts=16.0, utilized_efforts=8.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,2,15), estimated_prod=date(2026,2,25), business_benefits='Saves 3 hours per month for finance team', created_by='admin'),
-        Ticket(ticket_no='TKT-004', ticket_type='Maintenance', service='Database', description='Upgrade PostgreSQL from 14 to 16 and run performance tuning', status='UAT', planned_month='Feb-2026', planned_efforts=8.0, utilized_efforts=9.5, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,2,10), estimated_prod=date(2026,2,20), actual_uat=date(2026,2,12), remarks='Requires downtime window approval', created_by='admin'),
-        Ticket(ticket_no='TKT-005', ticket_type='Enhancement', service='Email Notifications', description='Add HTML templates for transactional emails and unsubscribe link', status='Open', planned_month='Mar-2026', planned_efforts=10.0, utilized_efforts=0.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,3,10), estimated_prod=date(2026,3,20), business_benefits='Improves email open rate by 20%', created_by='admin'),
-        Ticket(ticket_no='TKT-006', ticket_type='Bug Fix', service='Inventory', description='Stock count mismatch when concurrent users update same product', status='In Progress', planned_month='Feb-2026', planned_efforts=6.0, utilized_efforts=4.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,2,18), estimated_prod=date(2026,2,28), business_benefits='Prevents overselling', created_by='admin'),
-        Ticket(ticket_no='TKT-007', ticket_type='New Feature', service='Mobile App', description='Implement push notifications for order status updates', status='On Hold', planned_month='Mar-2026', planned_efforts=20.0, utilized_efforts=0.0, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,3,20), estimated_prod=date(2026,3,31), remarks='On hold pending vendor API agreement', business_benefits='Reduces customer support calls by 25%', created_by='admin'),
-        Ticket(ticket_no='TKT-008', ticket_type='Support', service='User Management', description='Bulk user import failing for CSV files larger than 10MB', status='Closed', planned_month='Jan-2026', actual_implementation_month='Jan-2026', planned_efforts=3.0, utilized_efforts=3.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,1,15), estimated_prod=date(2026,1,16), actual_uat=date(2026,1,15), actual_prod=date(2026,1,16), created_by='admin'),
-        Ticket(ticket_no='TKT-009', ticket_type='Enhancement', service='Search', description='Implement Elasticsearch for product search with faceted filtering', status='Open', planned_month='Mar-2026', planned_efforts=24.0, utilized_efforts=0.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,3,15), estimated_prod=date(2026,3,28), business_benefits='Search response time improves from 2s to 200ms', created_by='admin'),
-        Ticket(ticket_no='TKT-010', ticket_type='Maintenance', service='CDN', description='Migrate static assets to new CDN provider and update cache policies', status='UAT', planned_month='Feb-2026', planned_efforts=5.0, utilized_efforts=5.5, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,2,20), estimated_prod=date(2026,2,27), actual_uat=date(2026,2,21), business_benefits='Reduces page load time by 30%', created_by='admin'),
-        Ticket(ticket_no='TKT-011', ticket_type='Bug Fix', service='Checkout', description='Discount coupon not applying correctly when cart has mixed tax rates', status='Closed', planned_month='Jan-2026', actual_implementation_month='Feb-2026', planned_efforts=5.0, utilized_efforts=7.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,1,28), estimated_prod=date(2026,2,1), actual_uat=date(2026,2,2), actual_prod=date(2026,2,3), exception_from='Finance', business_benefits='Fixes revenue leakage of ~$5k/month', created_by='admin'),
-        Ticket(ticket_no='TKT-012', ticket_type='New Feature', service='Analytics', description='Build real-time sales dashboard with live chart updates via WebSocket', status='In Progress', planned_month='Mar-2026', planned_efforts=30.0, utilized_efforts=12.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,3,25), estimated_prod=date(2026,4,5), business_benefits='Enables real-time business decisions', created_by='admin'),
-        Ticket(ticket_no='TKT-013', ticket_type='Enhancement', service='API', description='Add GraphQL endpoint alongside existing REST API for mobile clients', status='Open', planned_month='Apr-2026', planned_efforts=40.0, utilized_efforts=0.0, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,4,15), estimated_prod=date(2026,4,25), business_benefits='Reduces mobile data usage by 40%', created_by='admin'),
-        Ticket(ticket_no='TKT-014', ticket_type='Support', service='Reporting', description='Monthly revenue report showing incorrect figures for refunded orders', status='Closed', planned_month='Jan-2026', actual_implementation_month='Jan-2026', planned_efforts=2.0, utilized_efforts=2.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,1,20), estimated_prod=date(2026,1,21), actual_uat=date(2026,1,20), actual_prod=date(2026,1,21), created_by='admin'),
-        Ticket(ticket_no='TKT-015', ticket_type='Maintenance', service='Security', description='Rotate all API keys and update secret management to HashiCorp Vault', status='In Progress', planned_month='Feb-2026', planned_efforts=6.0, utilized_efforts=3.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,2,25), estimated_prod=date(2026,2,28), business_benefits='Meets SOC2 compliance requirements', created_by='admin'),
-        Ticket(ticket_no='TKT-016', ticket_type='Bug Fix', service='Payment Gateway', description='Duplicate charge occurring when user double-clicks submit on slow connections', status='UAT', planned_month='Feb-2026', planned_efforts=8.0, utilized_efforts=8.0, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,2,22), estimated_prod=date(2026,3,1), actual_uat=date(2026,2,23), exception_from='Legal', business_benefits='Prevents financial disputes and chargebacks', created_by='admin'),
-        Ticket(ticket_no='TKT-017', ticket_type='New Feature', service='User Management', description='SSO integration with Google Workspace and Microsoft Entra ID', status='Open', planned_month='Apr-2026', planned_efforts=35.0, utilized_efforts=0.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,4,20), estimated_prod=date(2026,4,30), business_benefits='Reduces IT helpdesk password reset tickets by 60%', created_by='admin'),
-        Ticket(ticket_no='TKT-018', ticket_type='Enhancement', service='Mobile App', description='Add biometric authentication (Face ID / fingerprint) for app login', status='On Hold', planned_month='Apr-2026', planned_efforts=18.0, utilized_efforts=0.0, approved_by='Sarah Johnson', assigned_to='admin', estimated_uat=date(2026,4,10), estimated_prod=date(2026,4,20), remarks='Awaiting security review sign-off', business_benefits='Improves login speed and user satisfaction', created_by='admin'),
-        Ticket(ticket_no='TKT-019', ticket_type='Maintenance', service='Monitoring', description='Set up Grafana dashboards and PagerDuty alerts for all critical services', status='In Progress', planned_month='Mar-2026', planned_efforts=12.0, utilized_efforts=6.0, approved_by='Mike Chen', assigned_to='admin', estimated_uat=date(2026,3,12), estimated_prod=date(2026,3,18), business_benefits='Reduces MTTR from 45 min to 10 min', created_by='admin'),
-        Ticket(ticket_no='TKT-020', ticket_type='Bug Fix', service='Search', description='Search results not respecting user locale for date and currency formatting', status='Open', planned_month='Mar-2026', planned_efforts=4.0, utilized_efforts=0.0, approved_by='Lisa Park', assigned_to='admin', estimated_uat=date(2026,3,8), estimated_prod=date(2026,3,12), business_benefits='Fixes UX issues for international users', created_by='admin'),
-    ]
-    for t in tickets:
-        db.session.add(t)
+    if User.query.first():
+        return
+
+    username = os.environ.get('ADMIN_USERNAME')
+    email = os.environ.get('ADMIN_EMAIL')
+    password = os.environ.get('ADMIN_PASSWORD')
+    if not (username and email and password):
+        logging.getLogger(__name__).warning(
+            'No users exist yet and ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD '
+            'are not all set -- skipping first-admin creation. Set all three '
+            'and restart the app to create the first admin account.'
+        )
+        return
+
+    admin = User(
+        username=username,
+        email=email,
+        role='Admin',
+        active_flag=True,
+        force_password_change=False,
+    )
+    admin.set_password(password)
+    db.session.add(admin)
     db.session.commit()
-    logging.getLogger(__name__).info('Seeded 20 dummy tickets.')
+    logging.getLogger(__name__).info('First admin created: username=%s', username)
 
 
 def create_app():
@@ -138,24 +157,7 @@ def create_app():
 
         db.create_all()
         _run_migrations(app)
-
-        # Create default admin if no users exist
-        if not User.query.first():
-            admin = User(
-                username='admin',
-                email='admin@tickettracker',
-                role='Admin',
-                active_flag=True,
-                force_password_change=False
-            )
-            admin.set_password('Admin@123')
-            db.session.add(admin)
-            db.session.commit()
-            logging.getLogger(__name__).info('Default admin created: admin / Admin@123')
-
-        # Seed dummy tickets if none exist
-        if not Ticket.query.first():
-            _seed_dummy_data()
+        _create_first_admin()
 
     return app
 

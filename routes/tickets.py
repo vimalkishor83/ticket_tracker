@@ -161,8 +161,6 @@ def edit_ticket(ticket_id):
         old_data = ticket.to_dict()
 
         # Determine changed fields
-        date_fields = {'estimated_uat', 'estimated_prod', 'actual_uat', 'actual_prod',
-                       'revised_uat_date', 'revised_prod_date'}
         changed_fields = []
         for field in new_data:
             old_val = str(old_data.get(field) or '')
@@ -310,16 +308,6 @@ def bulk_upload():
             def safe_str(val):
                 v = str(val).strip() if pd.notna(val) else ''
                 return '' if v == 'nan' else v
-
-            def safe_date(val):
-                if pd.isna(val):
-                    return None
-                try:
-                    if hasattr(val, 'date'):
-                        return val.date()
-                    return parse_date(str(val))
-                except:
-                    return None
 
             data = {
                 'ticket_no': ticket_no,

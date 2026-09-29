@@ -46,10 +46,7 @@ def log_ticket_created(ticket, changed_by):
 
 
 def log_ticket_changes(ticket_id, old_data, new_data, changed_by, action='UPDATED'):
-    date_fields = {'estimated_uat', 'estimated_prod', 'actual_uat', 'actual_prod',
-                   'revised_uat_date', 'revised_prod_date'}
-
-    def fmt(val, field):
+    def fmt(val):
         if val is None:
             return ''
         return str(val)
@@ -62,8 +59,8 @@ def log_ticket_changes(ticket_id, old_data, new_data, changed_by, action='UPDATE
                 ticket_id=ticket_id,
                 action=action,
                 field_name=field,
-                old_value=fmt(old_val, field),
-                new_value=fmt(new_val, field),
+                old_value=fmt(old_val),
+                new_value=fmt(new_val),
                 changed_by=changed_by,
                 changed_at=datetime.utcnow()
             )
