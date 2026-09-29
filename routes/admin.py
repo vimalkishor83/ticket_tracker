@@ -133,10 +133,7 @@ def restore_ticket(ticket_id):
 def analytics():
     from sqlalchemy import func
 
-    # SQL SERVER MIGRATION NOTE: func.strftime(...) below compiles to SQLite's
-    # strftime() function, which does not exist on SQL Server. Replace with
-    # func.format(Ticket.created_at, 'yyyy-MM') (SQL Server's FORMAT()) or
-    # a CONVERT()-based equivalent when moving databases.
+    # func.strftime is SQLite-only -- use func.format(..., 'yyyy-MM') on SQL Server
     monthly = db.session.query(
         func.strftime('%Y-%m', Ticket.created_at).label('month'),
         func.count(Ticket.id)

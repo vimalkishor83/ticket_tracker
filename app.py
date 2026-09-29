@@ -35,20 +35,7 @@ setup_logging()
 
 def _run_migrations(app):
     """Add new columns to existing tables idempotently.
-
-    SQL SERVER MIGRATION NOTE: this whole approach (raw ALTER TABLE run on
-    every startup, relying on the DB driver to error out when a column/index
-    already exists) is SQLite-idiomatic. On SQL Server:
-    - "CREATE INDEX IF NOT EXISTS" is not valid syntax -- use
-      "IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = '...') CREATE INDEX ..."
-      or a T-SQL guard block.
-    - "ALTER TABLE ... ADD COLUMN" is SQLite syntax; SQL Server uses
-      "ALTER TABLE tickets ADD assigned_to VARCHAR(64)" (no "COLUMN" keyword),
-      and re-running it will raise a real error (column already exists) rather
-      than something you can blanket try/except -- check
-      INFORMATION_SCHEMA.COLUMNS first instead of relying on exception swallowing.
-    - Prefer a real migration tool (e.g. Flask-Migrate/Alembic) over this
-      idempotent-by-retry pattern once on a database that isn't file-based.
+    Note: SQLite-specific syntax (ADD COLUMN, no INFORMATION_SCHEMA check) -- rewrite for SQL Server.
     """
     migrations = [
         "ALTER TABLE tickets ADD COLUMN assigned_to VARCHAR(64)",
@@ -68,12 +55,7 @@ def _run_migrations(app):
 
 
 def _create_first_admin():
-    """Create the first Admin user from environment variables, if none exists
-    yet and the required variables are set. Never hardcodes a username or
-    password -- if ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD aren't all set,
-    this silently does nothing (fails closed: no default account is ever
-    created), and an operator sets up the first admin by setting these
-    variables once and restarting the app."""
+    """Create the first admin from env vars if no users exist yet."""
     from models.user import User
 
     if User.query.first():

@@ -4,11 +4,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production-abc123xyz'
-    # SQL SERVER MIGRATION NOTE: this is a SQLite file-based connection string.
-    # On SQL Server, replace with a driver-based URI instead, e.g. via
-    # SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or
-    # 'mssql+pyodbc://<user>:<password>@<host>/<db>?driver=ODBC+Driver+17+for+SQL+Server'
-    # (requires the pyodbc package and an installed ODBC driver).
+    # SQLite by default; for SQL Server use a driver-based URI (mssql+pyodbc://...)
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'database', 'ticket_tracker.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
