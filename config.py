@@ -4,8 +4,11 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production-abc123xyz'
-    # SQLite by default; for SQL Server use a driver-based URI (mssql+pyodbc://...)
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'database', 'ticket_tracker.db')
+    # SQLite by default; set DATABASE_URL for SQL Server (mssql+pyodbc://...)
+    SQLALCHEMY_DATABASE_URI = os.environ.get(
+        'DATABASE_URL',
+        'sqlite:///' + os.path.join(BASE_DIR, 'database', 'ticket_tracker.db'),
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # Flask-Mail config (Gmail SMTP)

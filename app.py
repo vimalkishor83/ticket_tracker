@@ -4,7 +4,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from flask import Flask, redirect, url_for, send_from_directory
 from config import Config
-from db import db, login_manager, mail
+from db import db, login_manager, mail, SQLSERVER_SCHEMA
 
 
 def setup_logging():
@@ -35,7 +35,8 @@ setup_logging()
 
 def _run_migrations(app):
     """Add new columns to existing tables idempotently.
-    Note: SQLite-specific syntax (ADD COLUMN, no INFORMATION_SCHEMA check) -- rewrite for SQL Server.
+    SQLite only (see create_app()) -- this syntax (bare ADD COLUMN, no
+    INFORMATION_SCHEMA check) does not translate to SQL Server.
     """
     migrations = [
         "ALTER TABLE tickets ADD COLUMN assigned_to VARCHAR(64)",
@@ -92,8 +93,15 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     app.config.from_object(Config)
 
-    # Ensure database directory exists
-    os.makedirs(os.path.join(os.path.dirname(__file__), 'database'), exist_ok=True)
+    is_sqlite = app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('sqlite:///')
+    if is_sqlite:
+        # Ensure database directory exists
+        os.makedirs(os.path.join(os.path.dirname(__file__), 'database'), exist_ok=True)
+    else:
+        # mssql+pyodbc:// (or any non-SQLite backend) -- bind every table to
+        # this app's own schema so Ticket Tracker, IRR, and Health Check
+        # (which share one DB login) never collide on the same table names.
+        db.metadata.schema = SQLSERVER_SCHEMA
 
     # Init extensions
     db.init_app(app)
@@ -138,7 +146,13 @@ def create_app():
         from models.comment import TicketComment
 
         db.create_all()
-        _run_migrations(app)
+        if is_sqlite:
+            _run_migrations(app)
+        # On SQL Server, create_all() alone is the migration path -- the
+        # SQLite-only ALTER TABLE statements in _run_migrations() would
+        # silently no-op under its swallow-all except, which is exactly the
+        # "looks fine, actually broken" failure mode we don't want on a
+        # fresh backend. New columns there need a real migration, not this.
         _create_first_admin()
 
     return app
