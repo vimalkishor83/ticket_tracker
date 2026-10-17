@@ -13,11 +13,12 @@
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data" novalidate>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">
+                        <label class="form-label fw-semibold" for="bulk-upload-file">
                             Excel File <span class="text-danger">*</span>
                         </label>
-                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required>
+                        <input type="file" name="file" id="bulk-upload-file" class="form-control" accept=".xlsx,.xls" required>
                         <div class="form-text">Upload .xlsx or .xls file. Required columns: ticket_no, description.</div>
                     </div>
                     <div class="d-flex gap-2">

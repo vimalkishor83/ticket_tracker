@@ -9,6 +9,3 @@ class SystemSettings(db.Model):
     freeze_date = db.Column(db.Date)
     updated_by = db.Column(db.String(64))
     updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f'<SystemSettings freeze_date={self.freeze_date}>'

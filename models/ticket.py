@@ -1,5 +1,6 @@
 from db import db
 from datetime import datetime
+from services.time_utils import to_awst
 
 
 class Ticket(db.Model):
@@ -26,8 +27,6 @@ class Ticket(db.Model):
     business_benefits = db.Column(db.Text)
     remarks = db.Column(db.Text)
 
-    assigned_to = db.Column(db.String(64), nullable=True)
-
     # Soft delete
     deleted_flag = db.Column(db.Boolean, default=False)
     delete_requested = db.Column(db.Boolean, default=False)
@@ -43,8 +42,15 @@ class Ticket(db.Model):
         db.Index('ix_tickets_planned_month', 'planned_month'),
         db.Index('ix_tickets_deleted_flag', 'deleted_flag'),
         db.Index('ix_tickets_ticket_type', 'ticket_type'),
-        db.Index('ix_tickets_assigned_to', 'assigned_to'),
     )
+
+    # so you can do ticket.history.order_by(...) to get all the history rows for this ticket
+    history = db.relationship('TicketHistory', lazy='dynamic')
+
+    def _created_at_awst_str(self):
+        if not self.created_at:
+            return None
+        return to_awst(self.created_at).strftime('%Y-%m-%d %H:%M:%S')
 
     def to_dict(self):
         def fmt_date(d):
@@ -71,11 +77,7 @@ class Ticket(db.Model):
             'exception_from': self.exception_from,
             'business_benefits': self.business_benefits,
             'remarks': self.remarks,
-            'assigned_to': self.assigned_to,
             'deleted_flag': self.deleted_flag,
             'created_by': self.created_by,
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'created_at': self._created_at_awst_str(),
         }
-
-    def __repr__(self):
-        return f'<Ticket {self.ticket_no}>'

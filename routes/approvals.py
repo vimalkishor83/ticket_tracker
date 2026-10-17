@@ -1,25 +1,27 @@
 import logging
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+
 from db import db
 from models.ticket import Ticket
 from models.approval import ApprovalRequest
 from models.user import User
 from services.history_service import log_ticket_created, log_ticket_changes, log_ticket_deleted
 from services.email_service import send_approval_notification
+from services.field_labels import FIELD_LABELS
+from services.time_utils import utcnow_naive
 from routes.tickets import apply_dict_to_ticket
 from routes.decorators import admin_required
-from services.field_labels import FIELD_LABELS
-from datetime import datetime
 
 approvals_bp = Blueprint('approvals', __name__)
 log = logging.getLogger(__name__)
 
 
 def _process_single_approval(approval, action, admin_username, comments):
-    """Apply approve/reject logic for one ApprovalRequest. Caller must commit."""
+    # caller commits
     approval.approved_by = admin_username
-    approval.approved_at = datetime.utcnow()
+    approval.approved_at = utcnow_naive()
     approval.comments = comments
 
     ticket_no = 'N/A'
@@ -43,7 +45,7 @@ def _process_single_approval(approval, action, admin_username, comments):
             if ticket:
                 old_data = ticket.to_dict()
                 apply_dict_to_ticket(ticket, data['new_data'])
-                ticket.updated_at = datetime.utcnow()
+                ticket.updated_at = utcnow_naive()
                 db.session.flush()
                 log_ticket_changes(ticket.id, old_data, data['new_data'],
                                    approval.requested_by, 'UPDATED')
@@ -96,7 +98,6 @@ def pending_approvals():
 def approval_details(approval_id):
     approval = ApprovalRequest.query.get_or_404(approval_id)
     data = approval.get_request_data()
-    ticket = approval.ticket
 
     diff = None
     if approval.request_type == 'EDIT' and 'changed_fields' in data:
@@ -113,7 +114,6 @@ def approval_details(approval_id):
     return render_template('approval_details.html',
         approval=approval,
         data=data,
-        ticket=ticket,
         diff=diff,
         field_labels=FIELD_LABELS,
     )

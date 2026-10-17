@@ -39,11 +39,12 @@
                         </td>
                         <td>{{ ticket.delete_requested_by or '–' }}</td>
                         <td class="text-muted small">
-                            {{ ticket.delete_requested_date.strftime('%d-%b-%Y %H:%M') if ticket.delete_requested_date else '–' }}
+                            {{ fmt_dt(ticket.delete_requested_date) }}
                         </td>
                         <td class="text-center">
                             <form method="POST" action="{{ url_for('admin.restore_ticket', ticket_id=ticket.id) }}"
                                   onsubmit="return confirm('Restore ticket {{ ticket.ticket_no }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-success btn-xs">
                                     <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
                                 </button>

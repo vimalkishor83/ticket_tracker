@@ -1,25 +1,24 @@
-from flask import Blueprint, render_template, request, send_file
+from flask import Blueprint, render_template, request
 from flask_login import login_required
 from db import db
 from models.ticket import Ticket
 from models.approval import ApprovalRequest
-from models.user import User
 from sqlalchemy import func
 from services.ticket_constants import STATUSES, TICKET_TYPES
-import pandas as pd
-import io
+from services.excel_export import dataframe_to_xlsx_response
 from datetime import datetime
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
 
+from services.date_utils import fmt_date_display as _fmt_date_display, fmt_datetime_display
+
+
 def fmt_date_display(d):
-    if d:
-        return d.strftime('%d-%b-%Y')
-    return ''
+    return _fmt_date_display(d, empty='')
 
 
-def _build_query(search_no, search_desc, filter_month, filter_status, filter_ticket_type, filter_assigned=''):
+def _build_query(search_no, search_desc, filter_month, filter_status, filter_ticket_type):
     query = Ticket.query.filter_by(deleted_flag=False)
     if search_no:
         query = query.filter(Ticket.ticket_no.ilike(f'%{search_no}%'))
@@ -31,27 +30,24 @@ def _build_query(search_no, search_desc, filter_month, filter_status, filter_tic
         query = query.filter(Ticket.status == filter_status)
     if filter_ticket_type:
         query = query.filter(Ticket.ticket_type == filter_ticket_type)
-    if filter_assigned:
-        query = query.filter(Ticket.assigned_to == filter_assigned)
     return query
 
 
 @dashboard_bp.route('/')
 @login_required
 def index():
-    search_no          = request.args.get('search_no', '').strip()
-    search_desc        = request.args.get('search_desc', '').strip()
-    filter_month       = request.args.get('filter_month', '').strip()
-    filter_status      = request.args.get('filter_status', '').strip()
+    search_no = request.args.get('search_no', '').strip()
+    search_desc = request.args.get('search_desc', '').strip()
+    filter_month = request.args.get('filter_month', '').strip()
+    filter_status = request.args.get('filter_status', '').strip()
     filter_ticket_type = request.args.get('filter_ticket_type', '').strip()
-    filter_assigned    = request.args.get('filter_assigned', '').strip()
-    page               = request.args.get('page', 1, type=int)
-    per_page           = request.args.get('per_page', 25, type=int)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 25, type=int)
     if per_page not in (25, 50, 100):
         per_page = 25
 
     query = _build_query(search_no, search_desc, filter_month, filter_status,
-                         filter_ticket_type, filter_assigned)
+                         filter_ticket_type)
     tickets = query.order_by(Ticket.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
@@ -60,12 +56,14 @@ def index():
     page_planned_total  = sum(t.planned_efforts or 0 for t in tickets.items)
     page_utilized_total = sum(t.utilized_efforts or 0 for t in tickets.items)
 
-    effort_row = db.session.query(
+    # same filters as `query` above, just summing instead of listing rows
+    effort_row = query.with_entities(
         func.sum(Ticket.planned_efforts),
         func.sum(Ticket.utilized_efforts)
-    ).filter(query.whereclause).one()
+    ).first()
     all_planned_total  = float(effort_row[0] or 0)
     all_utilized_total = float(effort_row[1] or 0)
+    all_variance_total = all_planned_total - all_utilized_total
 
     # Dashboard counts — single grouped query instead of 6 separate counts
     status_counts = db.session.query(
@@ -88,19 +86,10 @@ def index():
     pending_edit   = pc.get('EDIT', 0)
     pending_delete = pc.get('DELETE', 0)
 
-    # Chart data: tickets by type
-    type_counts_q = db.session.query(
-        Ticket.ticket_type, func.count(Ticket.id)
-    ).filter(Ticket.deleted_flag == False).group_by(Ticket.ticket_type).all()
-    type_labels = [r[0] or 'Unset' for r in type_counts_q]
-    type_counts_data = [r[1] for r in type_counts_q]
-
     months_used = db.session.query(Ticket.planned_month).filter(
         Ticket.planned_month.isnot(None), Ticket.deleted_flag == False
     ).distinct().all()
     months_used = [m[0] for m in months_used if m[0]]
-
-    active_users = User.query.filter_by(active_flag=True).order_by(User.username).all()
 
     return render_template('dashboard.html',
         tickets=tickets,
@@ -116,21 +105,18 @@ def index():
         months=months_used,
         statuses=STATUSES,
         ticket_types=TICKET_TYPES,
-        active_users=active_users,
         search_no=search_no,
         search_desc=search_desc,
         filter_month=filter_month,
         filter_status=filter_status,
         filter_ticket_type=filter_ticket_type,
-        filter_assigned=filter_assigned,
         per_page=per_page,
         page_planned_total=page_planned_total,
         page_utilized_total=page_utilized_total,
         all_planned_total=all_planned_total,
         all_utilized_total=all_utilized_total,
+        all_variance_total=all_variance_total,
         fmt_date=fmt_date_display,
-        type_labels=type_labels,
-        type_counts=type_counts_data,
     )
 
 
@@ -142,14 +128,13 @@ def export():
     filter_month       = request.args.get('filter_month', '').strip()
     filter_status      = request.args.get('filter_status', '').strip()
     filter_ticket_type = request.args.get('filter_ticket_type', '').strip()
-    filter_assigned    = request.args.get('filter_assigned', '').strip()
 
     tickets = _build_query(
-        search_no, search_desc, filter_month, filter_status, filter_ticket_type, filter_assigned
+        search_no, search_desc, filter_month, filter_status, filter_ticket_type
     ).order_by(Ticket.created_at.desc()).all()
 
     def fd(d):
-        return d.strftime('%d-%b-%Y') if d else ''
+        return _fmt_date_display(d, empty='')
 
     data = []
     for t in tickets:
@@ -159,7 +144,6 @@ def export():
             'Service': t.service,
             'Description': t.description,
             'Status': t.status,
-            'Assigned To': t.assigned_to,
             'Planned Month': t.planned_month,
             'Actual Impl. Month': t.actual_implementation_month,
             'Planned Efforts': t.planned_efforts,
@@ -175,15 +159,8 @@ def export():
             'Business Benefits': t.business_benefits,
             'Remarks': t.remarks,
             'Created By': t.created_by,
-            'Created At': t.created_at.strftime('%d-%b-%Y %H:%M') if t.created_at else '',
+            'Created At': fmt_datetime_display(t.created_at, empty=''),
         })
 
-    df = pd.DataFrame(data)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Tickets')
-    output.seek(0)
     filename = f'tickets_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-    return send_file(output, download_name=filename,
-                     as_attachment=True,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return dataframe_to_xlsx_response(data, filename)

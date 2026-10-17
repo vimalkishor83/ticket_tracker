@@ -29,10 +29,4 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }, 5000);
     });
-
-    // Activate all Bootstrap tooltips
-    const tooltipEls = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    tooltipEls.forEach(function (el) {
-        new bootstrap.Tooltip(el);
-    });
 });

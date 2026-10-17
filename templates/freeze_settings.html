@@ -20,7 +20,7 @@
                     <span class="text-muted small">
                         Last updated by {{ settings.updated_by or '–' }}
                         {% if settings.updated_at %}
-                        on {{ settings.updated_at.strftime('%d-%b-%Y %H:%M') }}
+                        on {{ fmt_dt(settings.updated_at) }}
                         {% endif %}
                     </span>
                 </div>
@@ -31,10 +31,11 @@
                 {% endif %}
 
                 <form method="POST" novalidate>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Set Freeze Date</label>
+                        <label class="form-label fw-semibold" for="freeze-settings-freeze-date">Set Freeze Date</label>
                         <input type="date" name="freeze_date" class="form-control"
-                               value="{{ settings.freeze_date.strftime('%Y-%m-%d') if settings and settings.freeze_date else '' }}" onclick="this.showPicker()">
+                               value="{{ settings.freeze_date.strftime('%Y-%m-%d') if settings and settings.freeze_date else '' }}" onclick="this.showPicker()" id="freeze-settings-freeze-date">
                         <div class="form-text">
                             On or after this date, adding tickets will also require approval.
                             Leave empty to remove freeze.

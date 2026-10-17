@@ -2,9 +2,12 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from flask import Flask, redirect, url_for, send_from_directory
+from flask import Flask, redirect, url_for, send_from_directory, request
+from flask_wtf import CSRFProtect
 from config import Config
-from db import db, login_manager, mail, SQLSERVER_SCHEMA
+from db import db, login_manager, mail, apply_schema
+
+csrf = CSRFProtect()
 
 
 def setup_logging():
@@ -33,28 +36,6 @@ def setup_logging():
 setup_logging()
 
 
-def _run_migrations(app):
-    """Add new columns to existing tables idempotently.
-    SQLite only (see create_app()) -- this syntax (bare ADD COLUMN, no
-    INFORMATION_SCHEMA check) does not translate to SQL Server.
-    """
-    migrations = [
-        "ALTER TABLE tickets ADD COLUMN assigned_to VARCHAR(64)",
-        "CREATE INDEX IF NOT EXISTS ix_tickets_status ON tickets (status)",
-        "CREATE INDEX IF NOT EXISTS ix_tickets_planned_month ON tickets (planned_month)",
-        "CREATE INDEX IF NOT EXISTS ix_tickets_deleted_flag ON tickets (deleted_flag)",
-        "CREATE INDEX IF NOT EXISTS ix_tickets_ticket_type ON tickets (ticket_type)",
-        "CREATE INDEX IF NOT EXISTS ix_tickets_assigned_to ON tickets (assigned_to)",
-    ]
-    with app.app_context():
-        for sql in migrations:
-            try:
-                db.session.execute(db.text(sql))
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
-
-
 def _create_first_admin():
     """Create the first admin from env vars if no users exist yet."""
     from models.user import User
@@ -67,9 +48,8 @@ def _create_first_admin():
     password = os.environ.get('ADMIN_PASSWORD')
     if not (username and email and password):
         logging.getLogger(__name__).warning(
-            'No users exist yet and ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD '
-            'are not all set -- skipping first-admin creation. Set all three '
-            'and restart the app to create the first admin account.'
+            'no admin env vars set, skipping admin creation. set ADMIN_USERNAME, '
+            'ADMIN_EMAIL, ADMIN_PASSWORD and restart.'
         )
         return
 
@@ -78,12 +58,30 @@ def _create_first_admin():
         email=email,
         role='Admin',
         active_flag=True,
-        force_password_change=False,
     )
     admin.set_password(password)
     db.session.add(admin)
     db.session.commit()
     logging.getLogger(__name__).info('First admin created: username=%s', username)
+
+
+def _create_test_user():
+    """TEMPORARY - remove after SMTP testing is done. Creates a non-admin test user if it doesn't exist."""
+    from models.user import User
+
+    if User.query.filter_by(username='testuser').first():
+        return
+
+    test_user = User(
+        username='testuser',
+        email='testuser@example.com',
+        role='User',
+        active_flag=True,
+    )
+    test_user.set_password('Test@12345')
+    db.session.add(test_user)
+    db.session.commit()
+    logging.getLogger(__name__).info('Test user created: username=testuser')
 
 
 def create_app():
@@ -93,67 +91,57 @@ def create_app():
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     app.config.from_object(Config)
 
-    is_sqlite = app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('sqlite:///')
-    if is_sqlite:
-        # Ensure database directory exists
-        os.makedirs(os.path.join(os.path.dirname(__file__), 'database'), exist_ok=True)
-    else:
-        # mssql+pyodbc:// (or any non-SQLite backend) -- bind every table to
-        # this app's own schema so Ticket Tracker, IRR, and Health Check
-        # (which share one DB login) never collide on the same table names.
-        db.metadata.schema = SQLSERVER_SCHEMA
+    os.makedirs(os.path.join(os.path.dirname(__file__), 'database'), exist_ok=True)
 
-    # Init extensions
     db.init_app(app)
+    apply_schema(app)
     login_manager.init_app(app)
     mail.init_app(app)
+    csrf.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'warning'
 
-    # Register blueprints
     from routes.auth import auth_bp
     from routes.dashboard import dashboard_bp
     from routes.tickets import tickets_bp
     from routes.approvals import approvals_bp
     from routes.admin import admin_bp
-    from routes.comments import comments_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(tickets_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(admin_bp)
-    app.register_blueprint(comments_bp)
 
-    # Shared, pre-built library files (Bootstrap, Chart.js), bind-mounted
-    # read-only at /common-static from the host's
-    # /home/claudedev/office/common-static -- one copy shared across office
-    # apps instead of each app vendoring its own from a CDN.
+    # bootstrap/chart.js etc come from the shared common-static folder, not a CDN
     common_static_dir = os.environ.get("COMMON_STATIC_DIR", "/common-static")
 
     @app.route("/common-static/<path:filename>")
     def common_static(filename):
         return send_from_directory(common_static_dir, filename)
 
-    # Create tables
+    from services.date_utils import fmt_datetime_display, fmt_date_only_awst
+    app.jinja_env.globals['fmt_dt'] = fmt_datetime_display
+    app.jinja_env.globals['fmt_date_awst'] = fmt_date_only_awst
+
+    @app.errorhandler(Exception)
+    def log_unhandled_exception(e):
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            raise e
+        logging.getLogger(__name__).exception('Unhandled exception on %s', request.path)
+        raise e
+
     with app.app_context():
-        # Import models to ensure they are registered
         from models.user import User
         from models.ticket import Ticket
         from models.history import TicketHistory
         from models.approval import ApprovalRequest
         from models.settings import SystemSettings
-        from models.comment import TicketComment
 
         db.create_all()
-        if is_sqlite:
-            _run_migrations(app)
-        # On SQL Server, create_all() alone is the migration path -- the
-        # SQLite-only ALTER TABLE statements in _run_migrations() would
-        # silently no-op under its swallow-all except, which is exactly the
-        # "looks fine, actually broken" failure mode we don't want on a
-        # fresh backend. New columns there need a real migration, not this.
         _create_first_admin()
+        _create_test_user()
 
     return app
 

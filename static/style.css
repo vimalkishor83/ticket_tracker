@@ -1,22 +1,17 @@
-/* ===== TICKET TRACKER – STYLE.CSS ===== */
-
 :root {
     --primary: #1565c0;
     --primary-light: #e3f2fd;
-    --surface: #f8f9fa;
     --border: #dee2e6;
-    --shadow: 0 2px 8px rgba(0,0,0,0.08);
     --radius: 10px;
 }
 
 body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 0.875rem;
     background-color: #f0f4f8;
     color: #333;
 }
 
-/* Navbar */
 .navbar {
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
@@ -26,10 +21,9 @@ body {
     letter-spacing: 0.3px;
 }
 
-/* Cards */
 .card {
     border-radius: var(--radius) !important;
-    box-shadow: var(--shadow) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
 }
 
 .card-header {
@@ -135,14 +129,12 @@ body {
     box-shadow: 0 0 0 0.2rem rgba(21,101,192,0.15);
 }
 
-/* Alert */
 .alert {
     border-radius: 8px;
     font-size: 0.875rem;
     border: none;
 }
 
-/* Page heading */
 h5.fw-bold {
     color: #1a1a2e;
 }

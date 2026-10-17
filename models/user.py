@@ -13,7 +13,6 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256))
     role = db.Column(db.String(10), default='User', nullable=False)  # Admin / User
     active_flag = db.Column(db.Boolean, default=True, nullable=False)
-    force_password_change = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def set_password(self, password):
@@ -24,9 +23,6 @@ class User(UserMixin, db.Model):
 
     def is_admin(self):
         return self.role == 'Admin'
-
-    def __repr__(self):
-        return f'<User {self.username}>'
 
 
 @login_manager.user_loader

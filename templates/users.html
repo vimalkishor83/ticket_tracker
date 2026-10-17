@@ -46,12 +46,13 @@
                             </span>
                         </td>
                         <td class="text-muted small">
-                            {{ user.created_at.strftime('%d-%b-%Y') if user.created_at else '–' }}
+                            {{ fmt_date_awst(user.created_at) }}
                         </td>
                         <td class="text-center">
                             <div class="d-flex gap-1 justify-content-center flex-wrap">
                                 {% if user.id != current_user.id %}
                                 <form method="POST" action="{{ url_for('admin.toggle_active', user_id=user.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-xs {% if user.active_flag %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
                                             title="{% if user.active_flag %}Deactivate{% else %}Activate{% endif %}"
                                             onclick="return confirm('{% if user.active_flag %}Deactivate{% else %}Activate{% endif %} user {{ user.username }}?')">
@@ -59,6 +60,7 @@
                                     </button>
                                 </form>
                                 <form method="POST" action="{{ url_for('admin.promote_user', user_id=user.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-xs btn-outline-warning"
                                             title="Toggle Role"
                                             onclick="return confirm('Change role for {{ user.username }}?')">
@@ -66,12 +68,6 @@
                                     </button>
                                 </form>
                                 {% endif %}
-                                <form method="POST" action="{{ url_for('admin.reset_password', user_id=user.id) }}">
-                                    <button type="submit" class="btn btn-xs btn-outline-secondary" title="Send Password Reset"
-                                            onclick="return confirm('Send password reset to {{ user.email }}?')">
-                                        <i class="bi bi-envelope"></i>
-                                    </button>
-                                </form>
                             </div>
                         </td>
                     </tr>

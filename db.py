@@ -6,9 +6,10 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 mail = Mail()
 
-# UAT/Prod binds this app to its own schema (TicketTracekr) on the shared
-# SQL Server database, since all three office apps share one DB login
-# (svc_Autom_ams) with no per-app DEFAULT_SCHEMA of its own. Dev/local
-# SQLite has no schema concept, so app.py only sets this when the
-# configured DATABASE_URI isn't sqlite:///.
-SQLSERVER_SCHEMA = "TicketTracekr"
+
+def apply_schema(app):
+    """Central place to set the DB schema for every table.
+    SQLite (local dev) doesn't support schemas, so skip it there.
+    """
+    if not app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+        db.metadata.schema = 'ticket_tracker'

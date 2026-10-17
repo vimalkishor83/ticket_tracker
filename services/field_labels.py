@@ -1,5 +1,3 @@
-"""Shared human-readable labels for ticket fields, used in history and approval views."""
-
 FIELD_LABELS = {
     'ticket_no': 'Ticket No',
     'ticket_type': 'Ticket Type',
@@ -20,6 +18,5 @@ FIELD_LABELS = {
     'exception_from': 'Exception From',
     'business_benefits': 'Business Benefits',
     'remarks': 'Remarks',
-    'assigned_to': 'Assigned To',
     'deleted_flag': 'Deleted',
 }

@@ -17,15 +17,10 @@ class ApprovalRequest(db.Model):
     approved_at = db.Column(db.DateTime)
     comments = db.Column(db.Text)
 
-    ticket = db.relationship('Ticket', backref=db.backref('approvals', lazy='dynamic'))
+    ticket = db.relationship('Ticket')
 
     def get_request_data(self):
-        if self.request_data:
-            return json.loads(self.request_data)
-        return {}
+        return json.loads(self.request_data) if self.request_data else {}
 
     def set_request_data(self, data):
         self.request_data = json.dumps(data)
-
-    def __repr__(self):
-        return f'<ApprovalRequest {self.request_type} ticket={self.ticket_id}>'

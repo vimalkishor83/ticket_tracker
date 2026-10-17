@@ -12,6 +12,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-body p-0">
         <form method="POST" action="{{ url_for('approvals.bulk_approval_action') }}" id="bulkForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             {% if approvals %}
             <div class="d-flex gap-2 align-items-center px-3 py-2 border-bottom bg-light">
                 <div class="form-check mb-0">
@@ -49,7 +50,8 @@
                         <tr>
                             <td class="ps-3">
                                 <input type="checkbox" name="approval_ids" value="{{ a.id }}"
-                                       class="form-check-input approval-checkbox">
+                                       class="form-check-input approval-checkbox"
+                                       aria-label="Select approval request {{ a.id }}">
                             </td>
                             <td>{{ a.id }}</td>
                             <td>
@@ -72,7 +74,7 @@
                             </td>
                             <td>{{ a.requested_by }}</td>
                             <td class="text-muted small">
-                                {{ a.requested_at.strftime('%d-%b-%Y %H:%M') if a.requested_at else '–' }}
+                                {{ fmt_dt(a.requested_at) }}
                             </td>
                             <td><span class="badge bg-warning text-dark">{{ a.status }}</span></td>
                             <td class="text-center">
