@@ -68,7 +68,7 @@ def form_to_dict(form):
         'actual_prod': form.get('actual_prod', '').strip(),
         'revised_uat_date': form.get('revised_uat_date', '').strip(),
         'revised_prod_date': form.get('revised_prod_date', '').strip(),
-        'exception_from': form.get('exception_from', '').strip(),
+        'sla_justification': form.get('sla_justification', '').strip(),
         'business_benefits': form.get('business_benefits', '').strip(),
         'remarks': form.get('remarks', '').strip(),
     }
@@ -97,7 +97,7 @@ def apply_dict_to_ticket(ticket, data):
     ticket.actual_prod = parse_date(data['actual_prod'])
     ticket.revised_uat_date = parse_date(data['revised_uat_date'])
     ticket.revised_prod_date = parse_date(data['revised_prod_date'])
-    ticket.exception_from = data['exception_from']
+    ticket.sla_justification = data['sla_justification']
     ticket.business_benefits = data['business_benefits']
     ticket.remarks = data['remarks']
 
@@ -218,7 +218,7 @@ def edit_ticket(ticket_id):
         'actual_prod': fmt_date(ticket.actual_prod),
         'revised_uat_date': fmt_date(ticket.revised_uat_date),
         'revised_prod_date': fmt_date(ticket.revised_prod_date),
-        'exception_from': ticket.exception_from or '',
+        'sla_justification': ticket.sla_justification or '',
         'business_benefits': ticket.business_benefits or '',
         'remarks': ticket.remarks or '',
     }
@@ -296,7 +296,12 @@ def bulk_upload():
         added = 0
         skipped = 0
         pending = 0
+        failed = 0
         errors = []
+
+        def safe_str(val):
+            v = str(val).strip() if pd.notna(val) else ''
+            return '' if v == 'nan' else v
 
         for idx, row in df.iterrows():
             ticket_no = str(row.get('ticket_no', '')).strip()
@@ -308,10 +313,6 @@ def bulk_upload():
                 errors.append(f'Row {idx+2}: Ticket {ticket_no} already exists.')
                 skipped += 1
                 continue
-
-            def safe_str(val):
-                v = str(val).strip() if pd.notna(val) else ''
-                return '' if v == 'nan' else v
 
             data = {
                 'ticket_no': ticket_no,
@@ -330,30 +331,44 @@ def bulk_upload():
                 'actual_prod': safe_str(row.get('actual_prod', '')),
                 'revised_uat_date': safe_str(row.get('revised_uat_date', '')),
                 'revised_prod_date': safe_str(row.get('revised_prod_date', '')),
-                'exception_from': safe_str(row.get('exception_from', '')),
+                'sla_justification': safe_str(row.get('sla_justification', row.get('exception_from', ''))),
                 'business_benefits': safe_str(row.get('business_benefits', '')),
                 'remarks': safe_str(row.get('remarks', '')),
             }
 
+            # Each row gets its own savepoint so a bad row (e.g. a column's
+            # length limit exceeded) can be rolled back and skipped without
+            # losing every row already flushed earlier in this same upload --
+            # previously one bad row aborted and rolled back the whole batch.
+            try:
+                with db.session.begin_nested():
+                    if frozen:
+                        ar = ApprovalRequest(request_type='ADD', requested_by=current_user.username)
+                        ar.set_request_data(data)
+                        db.session.add(ar)
+                    else:
+                        ticket = Ticket(created_by=current_user.username)
+                        apply_dict_to_ticket(ticket, data)
+                        db.session.add(ticket)
+                        db.session.flush()
+                        log_ticket_created(ticket, current_user.username)
+            except Exception as e:
+                failed += 1
+                errors.append(f'Row {idx+2}: Ticket {ticket_no} failed: {e}')
+                log.warning('Bulk upload row failed: ticket=%s error=%s', ticket_no, e)
+                continue
+
             if frozen:
-                ar = ApprovalRequest(request_type='ADD', requested_by=current_user.username)
-                ar.set_request_data(data)
-                db.session.add(ar)
                 pending += 1
             else:
-                ticket = Ticket(created_by=current_user.username)
-                apply_dict_to_ticket(ticket, data)
-                db.session.add(ticket)
-                db.session.flush()
-                log_ticket_created(ticket, current_user.username)
                 added += 1
 
         db.session.commit()
 
-        msg = f'Bulk upload: {added} added, {pending} pending approval, {skipped} skipped.'
+        msg = f'Bulk upload: {added} added, {pending} pending approval, {skipped} skipped, {failed} failed.'
         if errors:
             msg += ' Errors: ' + '; '.join(errors[:5])
-        log.info('Bulk upload: added=%d pending=%d skipped=%d by=%s', added, pending, skipped, current_user.username)
+        log.info('Bulk upload: added=%d pending=%d skipped=%d failed=%d by=%s', added, pending, skipped, failed, current_user.username)
         flash(msg, 'info')
         return redirect(url_for('dashboard.index'))
 
@@ -380,7 +395,7 @@ def download_template():
         'actual_prod': [''],
         'revised_uat_date': [''],
         'revised_prod_date': [''],
-        'exception_from': [''],
+        'sla_justification': [''],
         'business_benefits': ['Improves efficiency'],
         'remarks': [''],
     }

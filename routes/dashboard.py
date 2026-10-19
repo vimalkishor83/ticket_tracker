@@ -155,7 +155,7 @@ def export():
             'Actual Prod': fd(t.actual_prod),
             'Revised UAT': fd(t.revised_uat_date),
             'Revised Prod': fd(t.revised_prod_date),
-            'Exception From': t.exception_from,
+            'SLA Justification': t.sla_justification,
             'Business Benefits': t.business_benefits,
             'Remarks': t.remarks,
             'Created By': t.created_by,

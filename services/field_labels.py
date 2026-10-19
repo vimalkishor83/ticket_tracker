@@ -15,7 +15,7 @@ FIELD_LABELS = {
     'actual_prod': 'Actual Prod',
     'revised_uat_date': 'Revised UAT Date',
     'revised_prod_date': 'Revised Prod Date',
-    'exception_from': 'Exception From',
+    'sla_justification': 'SLA Justification',
     'business_benefits': 'Business Benefits',
     'remarks': 'Remarks',
     'deleted_flag': 'Deleted',

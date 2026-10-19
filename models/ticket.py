@@ -23,7 +23,7 @@ class Ticket(db.Model):
     actual_prod = db.Column(db.Date)
     revised_uat_date = db.Column(db.Date)
     revised_prod_date = db.Column(db.Date)
-    exception_from = db.Column(db.String(200))
+    sla_justification = db.Column(db.Text)
     business_benefits = db.Column(db.Text)
     remarks = db.Column(db.Text)
 
@@ -74,7 +74,7 @@ class Ticket(db.Model):
             'actual_prod': fmt_date(self.actual_prod),
             'revised_uat_date': fmt_date(self.revised_uat_date),
             'revised_prod_date': fmt_date(self.revised_prod_date),
-            'exception_from': self.exception_from,
+            'sla_justification': self.sla_justification,
             'business_benefits': self.business_benefits,
             'remarks': self.remarks,
             'deleted_flag': self.deleted_flag,

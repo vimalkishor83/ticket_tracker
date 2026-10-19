@@ -230,7 +230,7 @@
                         <th>Revised UAT</th>
                         <th>Revised Prod</th>
                         <th>Approved By</th>
-                        <th>Exception From</th>
+                        <th>SLA Justification</th>
                         <th>Business Benefits</th>
                         <th>Remarks</th>
                         <th>Created By</th>
@@ -306,7 +306,7 @@
                         <td>{{ fmt_date(ticket.revised_uat_date) or '–' }}</td>
                         <td>{{ fmt_date(ticket.revised_prod_date) or '–' }}</td>
                         <td>{{ ticket.approved_by or '–' }}</td>
-                        <td>{{ ticket.exception_from or '–' }}</td>
+                        <td>{{ ticket.sla_justification or '–' }}</td>
                         <td class="text-truncate" style="max-width:200px;" title="{{ ticket.business_benefits }}">{{ ticket.business_benefits or '–' }}</td>
                         <td class="text-truncate" style="max-width:200px;" title="{{ ticket.remarks }}">{{ ticket.remarks or '–' }}</td>
                         <td>{{ ticket.created_by or '–' }}</td>
