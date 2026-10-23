@@ -1,5 +1,7 @@
 import os
 
+import credvault_client
+
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
@@ -12,8 +14,12 @@ class Config:
     MAIL_SERVER = os.environ.get('MAIL_SERVER') or ''
     MAIL_PORT = int(os.environ.get('MAIL_PORT') or 587)
     MAIL_USE_TLS = True
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME') or ''
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD') or ''
+    MAIL_USERNAME = credvault_client.get_credential(
+        'ticket_tracker_mail_username', default=os.environ.get('MAIL_USERNAME') or ''
+    )
+    MAIL_PASSWORD = credvault_client.get_credential(
+        'ticket_tracker_mail_password', default=os.environ.get('MAIL_PASSWORD') or ''
+    )
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER') or ''
 
     # Token expiry in seconds (24 hours)
