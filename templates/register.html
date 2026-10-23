@@ -11,13 +11,14 @@
                     <p class="text-muted small">A password setup link will be emailed to you</p>
                 </div>
                 <form method="POST" novalidate>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
-                        <input type="text" name="username" class="form-control" required autofocus>
+                        <label class="form-label fw-semibold" for="register-username">Username <span class="text-danger">*</span></label>
+                        <input type="text" name="username" id="register-username" class="form-control" required autofocus>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
-                        <input type="email" name="email" class="form-control" required>
+                        <label class="form-label fw-semibold" for="register-email">Email <span class="text-danger">*</span></label>
+                        <input type="email" name="email" id="register-email" class="form-control" required>
                     </div>
                     <button type="submit" class="btn btn-primary w-100 fw-semibold">
                         <i class="bi bi-envelope me-1"></i>Send Setup Link

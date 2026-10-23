@@ -18,16 +18,17 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body p-4">
                 <form method="POST" novalidate>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-3">
 
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Ticket No <span class="text-danger">*</span></label>
-                            <input type="text" name="ticket_no" class="form-control"
+                            <label class="form-label fw-semibold" for="add-ticket-no">Ticket No <span class="text-danger">*</span></label>
+                            <input type="text" name="ticket_no" id="add-ticket-no" class="form-control"
                                    value="{{ data.get('ticket_no', '') }}" required>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Ticket Type</label>
-                            <select name="ticket_type" class="form-select">
+                            <label class="form-label fw-semibold" for="add-ticket-ticket-type">Ticket Type</label>
+                            <select name="ticket_type" class="form-select" id="add-ticket-ticket-type">
                                 <option value="">-- Select --</option>
                                 {% for t in ticket_types %}
                                 <option value="{{ t }}" {% if data.get('ticket_type') == t %}selected{% endif %}>{{ t }}</option>
@@ -35,27 +36,27 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label fw-semibold">Service</label>
+                            <label class="form-label fw-semibold" for="add-ticket-service">Service</label>
                             <input type="text" name="service" class="form-control"
-                                   value="{{ data.get('service', '') }}">
+                                   value="{{ data.get('service', '') }}" id="add-ticket-service">
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Description</label>
-                            <textarea name="description" class="form-control" rows="2">{{ data.get('description', '') }}</textarea>
+                            <label class="form-label fw-semibold" for="add-ticket-description">Description</label>
+                            <textarea name="description" class="form-control" rows="2" id="add-ticket-description">{{ data.get('description', '') }}</textarea>
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Status</label>
-                            <select name="status" class="form-select">
+                            <label class="form-label fw-semibold" for="add-ticket-status">Status</label>
+                            <select name="status" class="form-select" id="add-ticket-status">
                                 {% for s in statuses %}
                                 <option value="{{ s }}" {% if (data.get('status') or 'Open') == s %}selected{% endif %}>{{ s }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Planned Month</label>
-                            <select name="planned_month" class="form-select">
+                            <label class="form-label fw-semibold" for="add-ticket-planned-month">Planned Month</label>
+                            <select name="planned_month" class="form-select" id="add-ticket-planned-month">
                                 <option value="">-- Select --</option>
                                 {% for m in months %}
                                 <option value="{{ m }}" {% if data.get('planned_month') == m %}selected{% endif %}>{{ m }}</option>
@@ -63,8 +64,8 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Actual Impl. Month</label>
-                            <select name="actual_implementation_month" class="form-select">
+                            <label class="form-label fw-semibold" for="add-ticket-actual-implementation-month">Actual Impl. Month</label>
+                            <select name="actual_implementation_month" class="form-select" id="add-ticket-actual-implementation-month">
                                 <option value="">-- Select --</option>
                                 {% for m in months %}
                                 <option value="{{ m }}" {% if data.get('actual_implementation_month') == m %}selected{% endif %}>{{ m }}</option>
@@ -72,79 +73,66 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Approved By</label>
+                            <label class="form-label fw-semibold" for="add-ticket-approved-by">Approved By</label>
                             <input type="text" name="approved_by" class="form-control"
-                                   value="{{ data.get('approved_by', '') }}">
+                                   value="{{ data.get('approved_by', '') }}" id="add-ticket-approved-by">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Assigned To</label>
-                            <select name="assigned_to" class="form-select">
-                                <option value="">Unassigned</option>
-                                {% for u in active_users %}
-                                <option value="{{ u.username }}"
-                                    {% if data.get('assigned_to') == u.username %}selected{% endif %}>
-                                    {{ u.username }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">Planned Efforts (hrs)</label>
+                            <label class="form-label fw-semibold" for="add-ticket-planned-efforts">Planned Efforts (hrs)</label>
                             <input type="number" name="planned_efforts" class="form-control" step="0.5" min="0"
-                                   value="{{ data.get('planned_efforts', 0) }}">
+                                   value="{{ data.get('planned_efforts', 0) }}" id="add-ticket-planned-efforts">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Utilized Efforts (hrs)</label>
+                            <label class="form-label fw-semibold" for="add-ticket-utilized-efforts">Utilized Efforts (hrs)</label>
                             <input type="number" name="utilized_efforts" class="form-control" step="0.5" min="0"
-                                   value="{{ data.get('utilized_efforts', 0) }}">
+                                   value="{{ data.get('utilized_efforts', 0) }}" id="add-ticket-utilized-efforts">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Estimated UAT</label>
+                            <label class="form-label fw-semibold" for="add-ticket-estimated-uat">Estimated UAT</label>
                             <input type="date" name="estimated_uat" class="form-control"
-                                   value="{{ data.get('estimated_uat', '') }}">
+                                   value="{{ data.get('estimated_uat', '') }}" id="add-ticket-estimated-uat">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Estimated Prod</label>
+                            <label class="form-label fw-semibold" for="add-ticket-estimated-prod">Estimated Prod</label>
                             <input type="date" name="estimated_prod" class="form-control"
-                                   value="{{ data.get('estimated_prod', '') }}">
+                                   value="{{ data.get('estimated_prod', '') }}" id="add-ticket-estimated-prod">
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Actual UAT</label>
+                            <label class="form-label fw-semibold" for="add-ticket-actual-uat">Actual UAT</label>
                             <input type="date" name="actual_uat" class="form-control"
-                                   value="{{ data.get('actual_uat', '') }}">
+                                   value="{{ data.get('actual_uat', '') }}" id="add-ticket-actual-uat">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Actual Prod</label>
+                            <label class="form-label fw-semibold" for="add-ticket-actual-prod">Actual Prod</label>
                             <input type="date" name="actual_prod" class="form-control"
-                                   value="{{ data.get('actual_prod', '') }}">
+                                   value="{{ data.get('actual_prod', '') }}" id="add-ticket-actual-prod">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Revised UAT Date</label>
+                            <label class="form-label fw-semibold" for="add-ticket-revised-uat-date">Revised UAT Date</label>
                             <input type="date" name="revised_uat_date" class="form-control"
-                                   value="{{ data.get('revised_uat_date', '') }}">
+                                   value="{{ data.get('revised_uat_date', '') }}" id="add-ticket-revised-uat-date">
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label fw-semibold">Revised Prod Date</label>
+                            <label class="form-label fw-semibold" for="add-ticket-revised-prod-date">Revised Prod Date</label>
                             <input type="date" name="revised_prod_date" class="form-control"
-                                   value="{{ data.get('revised_prod_date', '') }}">
+                                   value="{{ data.get('revised_prod_date', '') }}" id="add-ticket-revised-prod-date">
                         </div>
 
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Exception From</label>
-                            <input type="text" name="exception_from" class="form-control"
-                                   value="{{ data.get('exception_from', '') }}">
+                            <label class="form-label fw-semibold" for="add-ticket-sla-justification">SLA Justification</label>
+                            <input type="text" name="sla_justification" class="form-control"
+                                   value="{{ data.get('sla_justification', '') }}" id="add-ticket-sla-justification">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label fw-semibold">Business Benefits</label>
+                            <label class="form-label fw-semibold" for="add-ticket-business-benefits">Business Benefits</label>
                             <input type="text" name="business_benefits" class="form-control"
-                                   value="{{ data.get('business_benefits', '') }}">
+                                   value="{{ data.get('business_benefits', '') }}" id="add-ticket-business-benefits">
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Remarks</label>
-                            <textarea name="remarks" class="form-control" rows="2">{{ data.get('remarks', '') }}</textarea>
+                            <label class="form-label fw-semibold" for="add-ticket-remarks">Remarks</label>
+                            <textarea name="remarks" class="form-control" rows="2" id="add-ticket-remarks">{{ data.get('remarks', '') }}</textarea>
                         </div>
 
                         <div class="col-12 d-flex gap-2 pt-2">

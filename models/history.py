@@ -14,7 +14,5 @@ class TicketHistory(db.Model):
     changed_by = db.Column(db.String(64))
     changed_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    ticket = db.relationship('Ticket', backref=db.backref('history', lazy='dynamic'))
-
-    def __repr__(self):
-        return f'<History ticket={self.ticket_id} field={self.field_name}>'
+    # so you can do history_row.ticket to get the Ticket this row belongs to
+    ticket = db.relationship('Ticket')

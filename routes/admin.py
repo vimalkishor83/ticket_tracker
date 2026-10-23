@@ -1,14 +1,17 @@
 import logging
+from datetime import datetime
+
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+from sqlalchemy import func
+
 from db import db
 from models.user import User
 from models.ticket import Ticket
 from models.settings import SystemSettings
 from services.history_service import log_ticket_restored
+from services.time_utils import utcnow_naive
 from routes.decorators import admin_required
-from sqlalchemy import func
-from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
 log = logging.getLogger(__name__)
@@ -50,19 +53,6 @@ def promote_user(user_id):
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/admin/users/<int:user_id>/reset-password', methods=['POST'])
-@login_required
-@admin_required
-def reset_password(user_id):
-    from services.email_service import send_reset_password_email
-    user = User.query.get_or_404(user_id)
-    sent = send_reset_password_email(user)
-    if sent:
-        flash(f'Password reset email sent to {user.email}.', 'success')
-    else:
-        flash('Could not send email. Check mail config.', 'warning')
-    return redirect(url_for('admin.users'))
-
 @admin_bp.route('/admin/freeze', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -81,7 +71,7 @@ def freeze_settings():
         if settings:
             settings.freeze_date = freeze_date
             settings.updated_by = current_user.username
-            settings.updated_at = datetime.utcnow()
+            settings.updated_at = utcnow_naive()
         else:
             settings = SystemSettings(
                 freeze_date=freeze_date,

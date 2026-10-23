@@ -2,6 +2,7 @@ Flask==3.0.3
 Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-Mail==0.10.0
+Flask-WTF==1.2.1
 SQLAlchemy==2.0.31
 Werkzeug==3.0.3
 pandas==2.2.2

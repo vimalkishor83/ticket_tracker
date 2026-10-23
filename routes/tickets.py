@@ -1,17 +1,20 @@
 import logging
-from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
+from datetime import datetime, date
+
+from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+from dateutil.relativedelta import relativedelta
+import pandas as pd
+
 from db import db
 from models.ticket import Ticket
 from models.approval import ApprovalRequest
 from models.settings import SystemSettings
-from models.user import User
 from services.history_service import log_ticket_created
 from services.ticket_constants import STATUSES, TICKET_TYPES
-import pandas as pd
-import io
-from datetime import datetime, date
-from dateutil.relativedelta import relativedelta
+from services.excel_export import dataframe_to_xlsx_response
+from services.date_utils import fmt_date_input, fmt_date_display
+from services.time_utils import utcnow_naive
 
 tickets_bp = Blueprint('tickets', __name__)
 log = logging.getLogger(__name__)
@@ -59,14 +62,13 @@ def form_to_dict(form):
         'planned_efforts': form.get('planned_efforts', '0') or '0',
         'utilized_efforts': form.get('utilized_efforts', '0') or '0',
         'approved_by': form.get('approved_by', '').strip(),
-        'assigned_to': form.get('assigned_to', '').strip(),
         'estimated_uat': form.get('estimated_uat', '').strip(),
         'estimated_prod': form.get('estimated_prod', '').strip(),
         'actual_uat': form.get('actual_uat', '').strip(),
         'actual_prod': form.get('actual_prod', '').strip(),
         'revised_uat_date': form.get('revised_uat_date', '').strip(),
         'revised_prod_date': form.get('revised_prod_date', '').strip(),
-        'exception_from': form.get('exception_from', '').strip(),
+        'sla_justification': form.get('sla_justification', '').strip(),
         'business_benefits': form.get('business_benefits', '').strip(),
         'remarks': form.get('remarks', '').strip(),
     }
@@ -89,14 +91,13 @@ def apply_dict_to_ticket(ticket, data):
     except (ValueError, TypeError):
         ticket.utilized_efforts = 0
     ticket.approved_by = data['approved_by']
-    ticket.assigned_to = data.get('assigned_to', '')
     ticket.estimated_uat = parse_date(data['estimated_uat'])
     ticket.estimated_prod = parse_date(data['estimated_prod'])
     ticket.actual_uat = parse_date(data['actual_uat'])
     ticket.actual_prod = parse_date(data['actual_prod'])
     ticket.revised_uat_date = parse_date(data['revised_uat_date'])
     ticket.revised_prod_date = parse_date(data['revised_prod_date'])
-    ticket.exception_from = data['exception_from']
+    ticket.sla_justification = data['sla_justification']
     ticket.business_benefits = data['business_benefits']
     ticket.remarks = data['remarks']
 
@@ -142,27 +143,37 @@ def add_ticket():
             flash('Ticket added successfully.', 'success')
             return redirect(url_for('dashboard.index'))
 
-    active_users = User.query.filter_by(active_flag=True).order_by(User.username).all()
     return render_template('add_ticket.html', data={}, statuses=STATUSES,
-                           ticket_types=TICKET_TYPES, months=MONTHS, frozen=frozen,
-                           active_users=active_users)
+                           ticket_types=TICKET_TYPES, months=MONTHS, frozen=frozen)
 
 
 @tickets_bp.route('/edit/<int:ticket_id>', methods=['GET', 'POST'])
 @login_required
 def edit_ticket(ticket_id):
     ticket = Ticket.query.filter_by(id=ticket_id, deleted_flag=False).first_or_404()
-    frozen = is_frozen()
+
+    existing_pending = ApprovalRequest.query.filter_by(
+        ticket_id=ticket.id, status='PENDING'
+    ).first()
+    if existing_pending:
+        flash('This ticket already has an edit pending approval. Please wait for it to be approved or rejected before editing again.', 'warning')
+        return redirect(url_for('dashboard.index'))
 
     if request.method == 'POST':
         new_data = form_to_dict(request.form)
         old_data = ticket.to_dict()
 
         # Determine changed fields
+        numeric_fields = ('planned_efforts', 'utilized_efforts')
         changed_fields = []
         for field in new_data:
-            old_val = str(old_data.get(field) or '')
-            new_val = str(new_data.get(field) or '')
+            old_v, new_v = old_data.get(field), new_data.get(field)
+            if field in numeric_fields:
+                old_val = float(old_v) if old_v not in (None, '') else 0.0
+                new_val = float(new_v) if new_v not in (None, '') else 0.0
+            else:
+                old_val = '' if old_v is None else str(old_v)
+                new_val = '' if new_v is None else str(new_v)
             if old_val != new_val:
                 changed_fields.append(field)
 
@@ -188,8 +199,7 @@ def edit_ticket(ticket_id):
         return redirect(url_for('dashboard.index'))
 
     # Pre-populate form
-    def fmt_date(d):
-        return d.strftime('%Y-%m-%d') if d else ''
+    fmt_date = fmt_date_input
 
     data = {
         'ticket_no': ticket.ticket_no,
@@ -208,15 +218,13 @@ def edit_ticket(ticket_id):
         'actual_prod': fmt_date(ticket.actual_prod),
         'revised_uat_date': fmt_date(ticket.revised_uat_date),
         'revised_prod_date': fmt_date(ticket.revised_prod_date),
-        'exception_from': ticket.exception_from or '',
+        'sla_justification': ticket.sla_justification or '',
         'business_benefits': ticket.business_benefits or '',
         'remarks': ticket.remarks or '',
-        'assigned_to': ticket.assigned_to or '',
     }
-    active_users = User.query.filter_by(active_flag=True).order_by(User.username).all()
     return render_template('edit_ticket.html', ticket=ticket, data=data,
                            statuses=STATUSES, ticket_types=TICKET_TYPES,
-                           months=MONTHS, frozen=frozen, active_users=active_users)
+                           months=MONTHS)
 
 
 @tickets_bp.route('/delete/<int:ticket_id>', methods=['POST'])
@@ -240,7 +248,7 @@ def delete_ticket(ticket_id):
     db.session.add(ar)
     ticket.delete_requested = True
     ticket.delete_requested_by = current_user.username
-    ticket.delete_requested_date = datetime.utcnow()
+    ticket.delete_requested_date = utcnow_naive()
     db.session.commit()
     log.info('Delete request pending approval: ticket=%s by=%s', ticket.ticket_no, current_user.username)
     flash('Delete request submitted for approval.', 'warning')
@@ -251,9 +259,7 @@ def delete_ticket(ticket_id):
 @login_required
 def view_ticket(ticket_id):
     ticket = Ticket.query.filter_by(id=ticket_id, deleted_flag=False).first_or_404()
-    def fmt_date(d):
-        return d.strftime('%d-%b-%Y') if d else '–'
-    return render_template('view_ticket.html', ticket=ticket, fmt_date=fmt_date)
+    return render_template('view_ticket.html', ticket=ticket, fmt_date=fmt_date_display)
 
 
 @tickets_bp.route('/history/<int:ticket_id>')
@@ -290,7 +296,12 @@ def bulk_upload():
         added = 0
         skipped = 0
         pending = 0
+        failed = 0
         errors = []
+
+        def safe_str(val):
+            v = str(val).strip() if pd.notna(val) else ''
+            return '' if v == 'nan' else v
 
         for idx, row in df.iterrows():
             ticket_no = str(row.get('ticket_no', '')).strip()
@@ -302,10 +313,6 @@ def bulk_upload():
                 errors.append(f'Row {idx+2}: Ticket {ticket_no} already exists.')
                 skipped += 1
                 continue
-
-            def safe_str(val):
-                v = str(val).strip() if pd.notna(val) else ''
-                return '' if v == 'nan' else v
 
             data = {
                 'ticket_no': ticket_no,
@@ -324,30 +331,44 @@ def bulk_upload():
                 'actual_prod': safe_str(row.get('actual_prod', '')),
                 'revised_uat_date': safe_str(row.get('revised_uat_date', '')),
                 'revised_prod_date': safe_str(row.get('revised_prod_date', '')),
-                'exception_from': safe_str(row.get('exception_from', '')),
+                'sla_justification': safe_str(row.get('sla_justification', row.get('exception_from', ''))),
                 'business_benefits': safe_str(row.get('business_benefits', '')),
                 'remarks': safe_str(row.get('remarks', '')),
             }
 
+            # Each row gets its own savepoint so a bad row (e.g. a column's
+            # length limit exceeded) can be rolled back and skipped without
+            # losing every row already flushed earlier in this same upload --
+            # previously one bad row aborted and rolled back the whole batch.
+            try:
+                with db.session.begin_nested():
+                    if frozen:
+                        ar = ApprovalRequest(request_type='ADD', requested_by=current_user.username)
+                        ar.set_request_data(data)
+                        db.session.add(ar)
+                    else:
+                        ticket = Ticket(created_by=current_user.username)
+                        apply_dict_to_ticket(ticket, data)
+                        db.session.add(ticket)
+                        db.session.flush()
+                        log_ticket_created(ticket, current_user.username)
+            except Exception as e:
+                failed += 1
+                errors.append(f'Row {idx+2}: Ticket {ticket_no} failed: {e}')
+                log.warning('Bulk upload row failed: ticket=%s error=%s', ticket_no, e)
+                continue
+
             if frozen:
-                ar = ApprovalRequest(request_type='ADD', requested_by=current_user.username)
-                ar.set_request_data(data)
-                db.session.add(ar)
                 pending += 1
             else:
-                ticket = Ticket(created_by=current_user.username)
-                apply_dict_to_ticket(ticket, data)
-                db.session.add(ticket)
-                db.session.flush()
-                log_ticket_created(ticket, current_user.username)
                 added += 1
 
         db.session.commit()
 
-        msg = f'Bulk upload: {added} added, {pending} pending approval, {skipped} skipped.'
+        msg = f'Bulk upload: {added} added, {pending} pending approval, {skipped} skipped, {failed} failed.'
         if errors:
             msg += ' Errors: ' + '; '.join(errors[:5])
-        log.info('Bulk upload: added=%d pending=%d skipped=%d by=%s', added, pending, skipped, current_user.username)
+        log.info('Bulk upload: added=%d pending=%d skipped=%d failed=%d by=%s', added, pending, skipped, failed, current_user.username)
         flash(msg, 'info')
         return redirect(url_for('dashboard.index'))
 
@@ -374,14 +395,8 @@ def download_template():
         'actual_prod': [''],
         'revised_uat_date': [''],
         'revised_prod_date': [''],
-        'exception_from': [''],
+        'sla_justification': [''],
         'business_benefits': ['Improves efficiency'],
         'remarks': [''],
     }
-    df = pd.DataFrame(data)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Tickets')
-    output.seek(0)
-    return send_file(output, download_name='bulk_upload_template.xlsx', as_attachment=True,
-                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    return dataframe_to_xlsx_response(data, 'bulk_upload_template.xlsx')

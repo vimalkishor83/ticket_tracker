@@ -9,6 +9,14 @@ auth_bp = Blueprint('auth', __name__)
 log = logging.getLogger(__name__)
 
 
+def _validate_new_password(password, confirm, label='Password'):
+    if len(password) < 6:
+        return f'{label} must be at least 6 characters.'
+    if password != confirm:
+        return 'Passwords do not match.'
+    return None
+
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -20,9 +28,6 @@ def login():
         if user and user.check_password(password) and user.active_flag:
             log.info('Login success: user=%s', username)
             login_user(user)
-            if user.force_password_change:
-                flash('Please change your password.', 'warning')
-                return redirect(url_for('auth.change_password'))
             next_page = request.args.get('next')
             return redirect(next_page or url_for('dashboard.index'))
         log.warning('Login failed: user=%s', username)
@@ -87,19 +92,16 @@ def set_password(token):
     if request.method == 'POST':
         password = request.form.get('password', '')
         confirm = request.form.get('confirm_password', '')
-        if len(password) < 6:
-            flash('Password must be at least 6 characters.', 'danger')
-            return render_template('set_password.html', token=token)
-        if password != confirm:
-            flash('Passwords do not match.', 'danger')
-            return render_template('set_password.html', token=token)
+        error = _validate_new_password(password, confirm)
+        if error:
+            flash(error, 'danger')
+            return render_template('set_password.html')
         user.set_password(password)
-        user.force_password_change = False
         db.session.commit()
         log.info('Password set via token: user=%s', user.username)
         flash('Password set successfully! You can now log in.', 'success')
         return redirect(url_for('auth.login'))
-    return render_template('set_password.html', token=token)
+    return render_template('set_password.html')
 
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
@@ -113,15 +115,12 @@ def change_password():
         if not current_user.check_password(current_password):
             flash('Current password is incorrect.', 'danger')
             return render_template('change_password.html')
-        if len(new_password) < 6:
-            flash('New password must be at least 6 characters.', 'danger')
-            return render_template('change_password.html')
-        if new_password != confirm:
-            flash('Passwords do not match.', 'danger')
+        error = _validate_new_password(new_password, confirm, label='New password')
+        if error:
+            flash(error, 'danger')
             return render_template('change_password.html')
 
         current_user.set_password(new_password)
-        current_user.force_password_change = False
         db.session.commit()
         log.info('Password changed: user=%s', current_user.username)
         flash('Password changed successfully.', 'success')

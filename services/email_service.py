@@ -23,20 +23,16 @@ def verify_token(token, expiration=None):
     return email
 
 
-def send_set_password_email(user):
+def _send_token_email(user, label, subject, intro):
     token = generate_token(user.email)
-    set_url = url_for('auth.set_password', token=token, _external=True)
-    subject = 'Ticket Tracker – Set Your Password'
+    url = url_for('auth.set_password', token=token, _external=True)
     body = f"""Hello {user.username},
 
-Your Ticket Tracker account has been created.
-Please click the link below to set your password:
+{intro}
 
-{set_url}
+{url}
 
 This link expires in 24 hours.
-
-If you did not request this, please ignore this email.
 
 Regards,
 Ticket Tracker Team
@@ -44,11 +40,19 @@ Ticket Tracker Team
     try:
         msg = Message(subject=subject, recipients=[user.email], body=body)
         mail.send(msg)
-        log.info('Set-password email sent: user=%s', user.username)
+        log.info('%s email sent: user=%s', label, user.username)
         return True
     except Exception as e:
-        log.error('Set-password email failed: user=%s error=%s', user.username, e)
+        log.error('%s email failed: user=%s error=%s', label, user.username, e)
         return False
+
+
+def send_set_password_email(user):
+    return _send_token_email(
+        user, 'Set-password', 'Ticket Tracker – Set Your Password',
+        'Your Ticket Tracker account has been created.\n'
+        'Please click the link below to set your password:'
+    )
 
 
 def send_approval_notification(requester_username, requester_email, action,
@@ -74,26 +78,8 @@ Ticket Tracker Team
 
 
 def send_reset_password_email(user):
-    token = generate_token(user.email)
-    reset_url = url_for('auth.set_password', token=token, _external=True)
-    subject = 'Ticket Tracker – Password Reset'
-    body = f"""Hello {user.username},
-
-You requested a password reset.
-Please click the link below to set a new password:
-
-{reset_url}
-
-This link expires in 24 hours.
-
-Regards,
-Ticket Tracker Team
-"""
-    try:
-        msg = Message(subject=subject, recipients=[user.email], body=body)
-        mail.send(msg)
-        log.info('Reset-password email sent: user=%s', user.username)
-        return True
-    except Exception as e:
-        log.error('Reset-password email failed: user=%s error=%s', user.username, e)
-        return False
+    return _send_token_email(
+        user, 'Reset-password', 'Ticket Tracker – Password Reset',
+        'You requested a password reset.\n'
+        'Please click the link below to set a new password:'
+    )

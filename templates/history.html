@@ -43,7 +43,7 @@
                     {% for h in history %}
                     <tr>
                         <td class="ps-3 text-muted small">
-                            {{ h.changed_at.strftime('%d-%b-%Y %H:%M') if h.changed_at else '–' }}
+                            {{ fmt_dt(h.changed_at) }}
                         </td>
                         <td>{{ h.action }}
                         </td>
