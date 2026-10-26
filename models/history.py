@@ -15,4 +15,4 @@ class TicketHistory(db.Model):
     changed_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # so you can do history_row.ticket to get the Ticket this row belongs to
-    ticket = db.relationship('Ticket')
+    ticket = db.relationship('Ticket', overlaps="history")

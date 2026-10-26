@@ -66,6 +66,22 @@ def _create_first_admin():
     logging.getLogger(__name__).info('First admin created: username=%s', username)
 
 
+def _auto_migrate():
+    from sqlalchemy import text, inspect
+    try:
+        inspector = inspect(db.engine)
+        if 'tickets' in inspector.get_table_names():
+            cols = {c['name'] for c in inspector.get_columns('tickets')}
+            if 'sla_justification' not in cols:
+                with db.engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN sla_justification TEXT"))
+                    if 'exception_from' in cols:
+                        conn.execute(text("UPDATE tickets SET sla_justification = exception_from WHERE sla_justification IS NULL AND exception_from IS NOT NULL"))
+                    conn.commit()
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Auto-migration notice: %s", exc)
+
+
 def create_app():
     app = Flask(__name__)
     # Behind a reverse proxy under a path prefix (Caddy sets X-Forwarded-Prefix). No effect when served at root.
@@ -122,6 +138,7 @@ def create_app():
         from models.settings import SystemSettings
 
         db.create_all()
+        _auto_migrate()
         _create_first_admin()
 
     return app
