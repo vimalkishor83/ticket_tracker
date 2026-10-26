@@ -42,9 +42,14 @@ def is_frozen():
 def parse_date(val):
     if not val:
         return None
+    if isinstance(val, date):
+        return val
+    if isinstance(val, datetime):
+        return val.date()
+    val_str = str(val).strip()
     for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y'):
         try:
-            return datetime.strptime(val, fmt).date()
+            return datetime.strptime(val_str, fmt).date()
         except ValueError:
             pass
     return None
@@ -75,31 +80,37 @@ def form_to_dict(form):
 
 
 def apply_dict_to_ticket(ticket, data):
-    ticket.ticket_no = data['ticket_no']
-    ticket.ticket_type = data['ticket_type']
-    ticket.service = data['service']
-    ticket.description = data['description']
-    ticket.status = data['status']
-    ticket.planned_month = data['planned_month']
-    ticket.actual_implementation_month = data['actual_implementation_month']
+    ticket.ticket_no = data.get('ticket_no', ticket.ticket_no)
+    ticket.ticket_type = data.get('ticket_type', ticket.ticket_type)
+    ticket.service = data.get('service', ticket.service)
+    ticket.description = data.get('description', ticket.description)
+    ticket.status = data.get('status', ticket.status or 'Open')
+    ticket.planned_month = data.get('planned_month', ticket.planned_month)
+    ticket.actual_implementation_month = data.get('actual_implementation_month', ticket.actual_implementation_month)
     try:
-        ticket.planned_efforts = float(data['planned_efforts'])
+        ticket.planned_efforts = float(data.get('planned_efforts', ticket.planned_efforts or 0))
     except (ValueError, TypeError):
         ticket.planned_efforts = 0
     try:
-        ticket.utilized_efforts = float(data['utilized_efforts'])
+        ticket.utilized_efforts = float(data.get('utilized_efforts', ticket.utilized_efforts or 0))
     except (ValueError, TypeError):
         ticket.utilized_efforts = 0
-    ticket.approved_by = data['approved_by']
-    ticket.estimated_uat = parse_date(data['estimated_uat'])
-    ticket.estimated_prod = parse_date(data['estimated_prod'])
-    ticket.actual_uat = parse_date(data['actual_uat'])
-    ticket.actual_prod = parse_date(data['actual_prod'])
-    ticket.revised_uat_date = parse_date(data['revised_uat_date'])
-    ticket.revised_prod_date = parse_date(data['revised_prod_date'])
-    ticket.sla_justification = data['sla_justification']
-    ticket.business_benefits = data['business_benefits']
-    ticket.remarks = data['remarks']
+    ticket.approved_by = data.get('approved_by', ticket.approved_by)
+    if 'estimated_uat' in data:
+        ticket.estimated_uat = parse_date(data['estimated_uat'])
+    if 'estimated_prod' in data:
+        ticket.estimated_prod = parse_date(data['estimated_prod'])
+    if 'actual_uat' in data:
+        ticket.actual_uat = parse_date(data['actual_uat'])
+    if 'actual_prod' in data:
+        ticket.actual_prod = parse_date(data['actual_prod'])
+    if 'revised_uat_date' in data:
+        ticket.revised_uat_date = parse_date(data['revised_uat_date'])
+    if 'revised_prod_date' in data:
+        ticket.revised_prod_date = parse_date(data['revised_prod_date'])
+    ticket.sla_justification = data.get('sla_justification', data.get('exception_from', ticket.sla_justification))
+    ticket.business_benefits = data.get('business_benefits', ticket.business_benefits)
+    ticket.remarks = data.get('remarks', ticket.remarks)
 
 
 @tickets_bp.route('/add', methods=['GET', 'POST'])

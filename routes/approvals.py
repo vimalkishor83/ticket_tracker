@@ -41,19 +41,22 @@ def _process_single_approval(approval, action, admin_username, comments):
             log.info('ADD approved: ticket=%s by=%s', ticket.ticket_no, admin_username)
 
         elif approval.request_type == 'EDIT':
-            ticket = approval.ticket
+            ticket = approval.ticket or (Ticket.query.get(approval.ticket_id) if approval.ticket_id else None)
             if ticket:
                 old_data = ticket.to_dict()
-                apply_dict_to_ticket(ticket, data['new_data'])
+                new_data = data.get('new_data', {})
+                if 'exception_from' in new_data and 'sla_justification' not in new_data:
+                    new_data['sla_justification'] = new_data['exception_from']
+                apply_dict_to_ticket(ticket, new_data)
                 ticket.updated_at = utcnow_naive()
                 db.session.flush()
-                log_ticket_changes(ticket.id, old_data, data['new_data'],
+                log_ticket_changes(ticket.id, old_data, new_data,
                                    approval.requested_by, 'UPDATED')
                 ticket_no = ticket.ticket_no
                 log.info('EDIT approved: ticket=%s by=%s', ticket.ticket_no, admin_username)
 
         elif approval.request_type == 'DELETE':
-            ticket = approval.ticket
+            ticket = approval.ticket or (Ticket.query.get(approval.ticket_id) if approval.ticket_id else None)
             if ticket:
                 ticket.deleted_flag = True
                 ticket.delete_requested = False
@@ -64,10 +67,11 @@ def _process_single_approval(approval, action, admin_username, comments):
 
     elif action == 'reject':
         approval.status = 'REJECTED'
-        if approval.request_type == 'DELETE' and approval.ticket:
-            approval.ticket.delete_requested = False
-        if approval.ticket:
-            ticket_no = approval.ticket.ticket_no
+        ticket = approval.ticket or (Ticket.query.get(approval.ticket_id) if approval.ticket_id else None)
+        if approval.request_type == 'DELETE' and ticket:
+            ticket.delete_requested = False
+        if ticket:
+            ticket_no = ticket.ticket_no
         log.info('Request rejected: approval_id=%s type=%s by=%s',
                  approval.id, approval.request_type, admin_username)
 
@@ -135,8 +139,14 @@ def approval_action(approval_id):
         flash('Invalid action.', 'danger')
         return redirect(url_for('approvals.pending_approvals'))
 
-    _process_single_approval(approval, action, current_user.username, comments)
-    db.session.commit()
+    try:
+        _process_single_approval(approval, action, current_user.username, comments)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.exception('Approval action error for approval %s: %s', approval_id, e)
+        flash(f'Failed to process request: {e}', 'danger')
+        return redirect(url_for('approvals.approval_details', approval_id=approval_id))
 
     if action == 'approve':
         type_msg = {'ADD': 'Ticket created.', 'EDIT': 'Ticket updated.', 'DELETE': 'Ticket deleted.'}
